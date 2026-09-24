@@ -1,28 +1,50 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>World viewer</title>
 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block;image-rendering:pixelated}</style>
 <canvas id="c"></canvas>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
+<script>window.THREE || document.write('<script src="../vendor/three.min.js"><\/script>');</script>
 <script src="../src/core.js"></script>
+<script src="../src/terrain.js"></script>
 <script src="../src/textures.js"></script>
 <script src="../src/world.js"></script>
 <script src="../src/render.js"></script>
 <script>
 // Dev tool: renders the world from a camera given in the URL hash: #x,y,z,lookX,lookY,lookZ,sat
+// ?q=low builds the phone quality. Hooks for tests: view(...), tick(seconds, pulse), act(name, ...args), stats().
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x2b1b4d, 18, 95);
-const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 900);
+const camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.1, 400);
 Render.init(document.getElementById('c'));
+const quality = new URLSearchParams(location.search).get('q') || 'high';
 const t0 = performance.now();
-World.build(scene);
+World.build(scene, { quality });
 window.buildMs = performance.now() - t0;
+let time = 1, last = null;
+// a demo loop for the Loop Stones: carved hits, draft hits and the playhead
+const demo = { song: { kick: [], snare: [], bass: [] }, draft: { kick: [], snare: [], bass: [] } };
+for (let s = 0; s < 32; s++) {
+  demo.song.kick[s] = s % 8 === 0 ? 1 : 0; demo.song.snare[s] = s % 16 === 8 ? 1 : 0; demo.song.bass[s] = s === 0 || s === 14 ? 1 : 0;
+  demo.draft.kick[s] = s === 4 || s === 20; demo.draft.snare[s] = s === 12 || s === 28; demo.draft.bass[s] = s === 22;
+}
+const draw = () => { World.update(time, 0.016, 0.5); World.updateStones(demo, time * 11.33, 0.5); Render.draw(scene, camera); };
 window.view = (x, y, z, lx, ly, lz, sat = 1) => {
+  last = [x, y, z, lx, ly, lz, sat];
   camera.position.set(x, y, z); camera.lookAt(lx, ly, lz);
-  Render.U.sat.value = sat; Render.resize(camera);
-  World.update(1, 0.016, 0.5); Render.draw(scene, camera);
+  Render.U.sat.value = sat;
+  draw();
+  return window.stats();
 };
-const v = (location.hash.slice(1) || '-60,6,52,-74,6,70,1').split(',').map(Number);
+// Advances the world clock in 1/60 s steps (animations, actions), then draws one frame.
+window.tick = (seconds, pulse = 0.5) => {
+  for (let k = 0, n = Math.round(seconds * 60); k < n; k++) { time += 1 / 60; World.update(time, 1 / 60, pulse); World.updateStones(demo, time * 11.33, pulse); }
+  Render.draw(scene, camera);
+  return window.stats();
+};
+window.act = (name, ...args) => { World[name](...args); draw(); };
+window.stats = () => ({ ...Render.stats, buildMs: window.buildMs });
+const v = (location.hash.slice(1) || '-52,6,44,-74,14,70,1').split(',').map(Number);
 view(...v);
-window.addEventListener('resize', () => view(...v));
+window.addEventListener('resize', () => last && view(...last));
 </script>

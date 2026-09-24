@@ -11,7 +11,7 @@
 
 const Terrain = (() => {
   const L = {
-    tree: [-74, 70], spawn: [-64, 58], swamp: [-76, 78],
+    tree: [-74, 70], spawn: [-64, 58], swamp: [-80, 82],
     clearing: [-30, 6], stone1: [-26, 1],
     ruins: [13, 3], altar: [14, -2], gate1: [14, -11],
     hollow: [30, -34], pool: [36, -58], falls: [36, -67.6], stone2: [21, -51], toad: [39, -57],
@@ -50,7 +50,7 @@ const Terrain = (() => {
     let h = 0.9 + (fbm(x * 0.025 + 11, z * 0.025 - 7, 4) - 0.5) * 3.2 + (vnoise(x * 0.18, z * 0.18) - 0.5) * 0.5;
     // the Summoning Swamp; the tree stands on an island tied to the spawn by a causeway of roots
     h = lerp(h, -1.1 + (vnoise(x * 0.3, z * 0.3) - 0.5) * 0.8, smoothstep(29, 15, d2(x, z, 'swamp')));
-    h = lerp(h, 1.3 + (vnoise(x * 0.5, z * 0.5) - 0.5) * 0.3, smoothstep(12, 8, d2(x, z, 'tree')));
+    h = lerp(h, 1.3 + (vnoise(x * 0.5, z * 0.5) - 0.5) * 0.3, smoothstep(11, 7.5, d2(x, z, 'tree')));
     h = lerp(h, 0.7, smoothstep(3.4, 1.4, segDist(x, z, ...L.tree, ...L.spawn)));
     h = lerp(h, 1.0, smoothstep(7, 4, d2(x, z, 'spawn')));
     // clearing and paths
@@ -64,6 +64,7 @@ const Terrain = (() => {
     h = lerp(h, 0.4 + (vnoise(x * 0.3, z * 0.3) - 0.5) * 0.3, smoothstep(13, 6, dh));
     // the pool under the falls
     h = lerp(h, -1.6 + (vnoise(x * 0.5, z * 0.5) - 0.5) * 0.4, smoothstep(11.5, 6, d2(x, z, 'pool')));
+    h = lerp(h, 0.75, smoothstep(3.6, 1.6, d2(x, z, 'toad'))); // the Sub Toad's rock
     // the ridge at z=-11: a ragged wall with a single gap at x=14
     const gx = Math.abs(x - 14);
     const wob = (vnoise(x * 0.06 + 3, 1.7) - 0.5) * 3.5 * smoothstep(6, 16, gx);
@@ -80,9 +81,12 @@ const Terrain = (() => {
     const rampMask = smoothstep(4.2, 2.8, Math.abs(x - 61)) * smoothstep(-59, -62, z);
     const rampY = lerp(1.1, PLATEAU_Y, clamp((-z - 62) / 17, 0, 1));
     h = lerp(h, rampY, rampMask * smoothstep(-86, -80, z));
-    // steep hills wall the world in
-    const e = Math.max(Math.abs(x) - 98, z - 96, -z - 116);
-    if (e > 0) h += e * 2.2 + (vnoise(x * 0.2, z * 0.2) - 0.5) * Math.min(e, 4);
+    // the world is walled in by a short cliff, with gentler hills beyond it (kept low behind the pyramid)
+    const e = Math.max(Math.abs(x) - 100, z - 96, -z - 118);
+    if (e > 0) {
+      const beyond = Math.max(0, e - 2.6) * (0.3 + 0.6 * vnoise(x * 0.05, z * 0.05)) * smoothstep(28, 48, d2(x, z, 'pyramid'));
+      h += Math.min(e, 2.6) * 2.5 + beyond + (vnoise(x * 0.2, z * 0.2) - 0.5) * Math.min(e, 3);
+    }
     return h;
   }
 
@@ -138,8 +142,10 @@ const Terrain = (() => {
   // Where vegetation must not grow: paths, clearings, landmarks and their approaches.
   const CLEAR = [['clearing', 12], ['tree', 9], ['spawn', 6], ['pool', 9], ['hollow', 7], ['pyramid', 32], ['stone1', 6],
     ['stone2', 6], ['stone3', 7], ['warden', 9], ['altar', 5], ['falls', 5], ['gate1', 6], ['gate2', 6]];
+  // a clear view from beyond the spawn to the Summoning Tree
+  const VISTA = [L.tree[0], L.tree[1], L.spawn[0] + (L.spawn[0] - L.tree[0]) * 0.9, L.spawn[1] + (L.spawn[1] - L.tree[1]) * 0.9];
   function keepClear(x, z, pad = 0) {
-    if (pathDist(x, z) < 3.4 + pad) return true;
+    if (pathDist(x, z) < 3.4 + pad || segDist(x, z, ...VISTA) < 6 + pad) return true;
     for (const [k, r] of CLEAR) if (d2(x, z, k) < r + pad) return true;
     if (Math.abs(x - 13.5) < 13 + pad && Math.abs(z - 3) < 13 + pad) return true; // ruins
     return Math.abs(x - 61) < 5 + pad && z < -58 && z > -86; // ramp

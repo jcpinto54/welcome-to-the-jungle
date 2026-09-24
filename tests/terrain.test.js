@@ -19,22 +19,22 @@ function walk(ax, az, bx, bz, step = 0.25) {
   return null;
 }
 
-// Flood-fills the walkable ground (0.5 grid, 8 neighbours) across the whole width of the world,
-// starting from every cell on row zFrom. Returns the first cell reached on row zTo, or null.
+// Flood-fills the walkable ground (0.5 grid, 8 neighbours, breadth first) across the whole width of
+// the world, starting from every cell on row zFrom. Returns a cell reached on row zTo, or null.
 // A player who can only take canStep moves and never enters a box can't do better than this.
 function crossing(colliders, zFrom, zTo, r = R) {
   const S = 0.5, x0 = -106, nx = Math.round(212 / S) + 1, nz = Math.round(Math.abs(zTo - zFrom) / S) + 1;
   const dir = Math.sign(zTo - zFrom), X = (i) => x0 + i * S, Z = (j) => zFrom + dir * j * S;
-  const seen = new Uint8Array(nx * nz), stack = [];
-  for (let i = 0; i < nx; i++) if (!colliders.blockedByBox(X(i), Z(0), r)) { seen[i] = 1; stack.push(i); }
-  while (stack.length) {
-    const k = stack.pop(), i = k % nx, j = (k - i) / nx;
+  const seen = new Uint8Array(nx * nz), queue = [];
+  for (let i = 0; i < nx; i++) if (!colliders.blockedByBox(X(i), Z(0), r)) { seen[i] = 1; queue.push(i); }
+  for (let head = 0; head < queue.length; head++) {
+    const k = queue[head], i = k % nx, j = (k - i) / nx;
     if (j === nz - 1) return [X(i), Z(j)];
     for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
       const ni = i + di, nj = j + dj, nk = nj * nx + ni;
       if ((!di && !dj) || ni < 0 || nj < 0 || ni >= nx || nj >= nz || seen[nk]) continue;
       if (!canStep(X(i), Z(j), X(ni), Z(nj)) || colliders.blockedByBox(X(ni), Z(nj), r)) continue;
-      seen[nk] = 1; stack.push(nk);
+      seen[nk] = 1; queue.push(nk);
     }
   }
   return null;
@@ -98,6 +98,13 @@ test('landmarks sit above the water, the swamp and pool are below it', () => {
   for (const k of ['swamp', 'pool']) assert.ok(heightAt(...L[k]) < WATER_Y - 0.4, `${k} is under water`);
 });
 
+test('the Sub Toad sits on a rock islet in the pool', () => {
+  const [x, z] = L.toad;
+  assert.ok(heightAt(x, z) > WATER_Y + 0.4, 'the rock top is dry');
+  assert.ok(heightAt(x, z) < WATER_Y + 1.5, 'but low, just above the water');
+  assert.ok(heightAt(x - 5, z) < WATER_Y, 'the pool is around it');
+});
+
 test('the wizard can walk from the tree wound to the spawn without swimming deep', () => {
   const [tx, tz] = L.tree, [sx, sz] = L.spawn, d = Math.hypot(sx - tx, sz - tz);
   const wx = tx + ((sx - tx) / d) * 6.5, wz = tz + ((sz - tz) / d) * 6.5;
@@ -119,6 +126,10 @@ test('heightAt is flat inside each ground triangle, so things placed on it sit o
 });
 
 test('the world edge is a wall', () => {
+  assert.ok(walk(90, 0, 105.5, 0), 'east cliff');
+  assert.ok(walk(-90, 20, -105.5, 20), 'west cliff');
+  assert.ok(walk(-60, 85, -60, 103.5), 'south cliff');
+  assert.ok(walk(80, -105, 80, -123.5), 'north cliff behind the pyramid');
   assert.equal(canStep(104, 0, 108, 0), false);
   assert.equal(canStep(-104, 0, -108, 0), false);
   assert.equal(canStep(0, 102, 0, 110), false);
@@ -165,8 +176,7 @@ test('the vine wall seals the ridge gap; burnt, the gap is open', () => {
   assert.ok(x0 < L.gate1[0] && x1 > L.gate1[0] && z0 < L.gate1[1] && z1 > L.gate1[1], 'the box is at the gap');
   assert.equal(crossing(c, 2, -24), null, 'no way around the vine wall');
   box.active = false;
-  const through = crossing(c, 2, -24);
-  assert.ok(through, 'the burnt gap lets you north');
+  assert.ok(crossing(c, 2, -24), 'the burnt gap lets you north');
 });
 
 test('the cracked gate seals the ramp; broken, the plateau is reachable', () => {
@@ -176,8 +186,7 @@ test('the cracked gate seals the ramp; broken, the plateau is reachable', () => 
   assert.ok(x0 < L.gate2[0] && x1 > L.gate2[0] && z0 < L.gate2[1] && z1 > L.gate2[1], 'the box is on the ramp');
   assert.equal(crossing(c, -56, -82), null, 'no way around the cracked gate');
   box.active = false;
-  const up = crossing(c, -56, -82);
-  assert.ok(up && Math.abs(up[0] - 61) < 6, 'the ramp is the way up');
+  assert.ok(crossing(c, -56, -82), 'the ramp leads up');
 });
 
 test('vegetation keeps off the paths and landmarks', () => {

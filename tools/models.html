@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jungle Wizard models</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07060f; overflow: hidden; font: 13px/1.3 monospace; color: #cfc8ff; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  #ui { position: fixed; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 70vw; }
+  #ui button { font: inherit; background: #1b1433; color: #e7e0ff; border: 1px solid #4b3b8a; padding: 3px 7px; cursor: pointer; }
+  #ui button.on { background: #4b3b8a; }
+  #info { position: fixed; right: 8px; top: 8px; text-align: right; white-space: pre; opacity: 0.85; }
+  .hide #ui, .hide #info { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"></div>
+<div id="info"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
+<script>window.THREE || document.write('<script src="../vendor/three.min.js"><\/script>');</script>
+<script src="../src/core.js"></script>
+<script src="../src/textures.js"></script>
+<script>
+// Dev tool, standalone: it does not load world.js. This tiny stand-in gives the models the
+// same PS1 vertex snapping World.ps1 applies in the game.
+const World = (() => {
+  const SNAP = { value: new THREE.Vector2(213, 120) };
+  function ps1(mat) {
+    const prev = mat.onBeforeCompile;
+    mat.onBeforeCompile = (shader, r) => {
+      prev.call(mat, shader, r);
+      shader.uniforms.uSnap = SNAP;
+      shader.vertexShader = 'uniform vec2 uSnap;\n' + shader.vertexShader.replace('#include <project_vertex>',
+        '#include <project_vertex>\n gl_Position.xy = floor(gl_Position.xy / gl_Position.w * uSnap + 0.5) / uSnap * gl_Position.w;');
+    };
+    const key = mat.customProgramCacheKey.bind(mat);
+    mat.customProgramCacheKey = () => key() + 'ps1';
+    return mat;
+  }
+  return { ps1, SNAP, stub: true };
+})();
+</script>
+<script src="../src/wizard.js"></script>
+<script src="../src/creatures.js"></script>
+<script>
+'use strict';
+/* Model showcase: turntable, poses and a game-camera view, rendered like the game
+   (about 240 lines, integer nearest upscale, dithered 15-bit colour).
+   URL: models.html?model=wizard&ui=0   Test hook: window.MV */
+const qs = new URLSearchParams(location.search);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+const rt = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
+const post = new THREE.ShaderMaterial({
+  uniforms: { tDiffuse: { value: rt.texture }, res: { value: new THREE.Vector2(2, 2) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 res; varying vec2 vUv;
+    float b2(vec2 p) { return mod(2.0 * p.x + 3.0 * p.y, 4.0); }
+    float bayer4(vec2 p) { return (4.0 * b2(mod(p, 2.0)) + b2(mod(floor(p * 0.5), 2.0))) / 16.0; }
+    vec3 hot(vec2 p) { return max(texture2D(tDiffuse, p).rgb - 0.52, 0.0); }
+    void main() {
+      vec2 px = floor(vUv * res), t = 1.0 / res;
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 g = hot(vUv + vec2(2.0, 0.0) * t) + hot(vUv - vec2(2.0, 0.0) * t) + hot(vUv + vec2(0.0, 2.0) * t) + hot(vUv - vec2(0.0, 2.0) * t);
+      g += 0.7 * (hot(vUv + vec2(3.0, 3.0) * t) + hot(vUv + vec2(-3.0, 3.0) * t) + hot(vUv + vec2(3.0, -3.0) * t) + hot(vUv - vec2(3.0, 3.0) * t));
+      c += g * 0.16;
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = c * 1.08 - 0.012;
+      c += vec3(0.016, 0.01, 0.036) * (1.0 - smoothstep(0.0, 0.25, l));
+      vec2 v = vUv - 0.5;
+      c *= 1.0 - dot(v, v) * 0.7;
+      c = floor(max(c, 0.0) * 31.0 + bayer4(px)) / 31.0;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+const postScene = new THREE.Scene();
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+const postCam = new THREE.Camera();
+
+const FOG = 0x2b1b4d;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOG);
+scene.fog = new THREE.Fog(FOG, 14, 60);
+const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, 200);
+// the game's lights: purple sky / swampy ground, a low pink sun from the north-west
+scene.add(new THREE.HemisphereLight(0x8a6ad8, 0x1a3a22, 1.25));
+const sun = new THREE.DirectionalLight(0xff9a7a, 1.1);
+sun.position.set(-0.55, 0.3, -0.83).multiplyScalar(50);
+scene.add(sun);
+
+// A patch of swamp floor with a few dark trunks behind, to judge contrast.
+const ground = (() => {
+  const g = new THREE.PlaneGeometry(80, 80, 40, 40).toNonIndexed();
+  g.rotateX(-Math.PI / 2);
+  const p = g.attributes.position, c = new Float32Array(p.count * 3), r = rng(3);
+  for (let i = 0; i < p.count; i++) p.setY(i, (vnoise(p.getX(i) * 0.4, p.getZ(i) * 0.4) - 0.5) * 0.25);
+  for (let i = 0; i < p.count; i += 3) {
+    const k = r(), col = new THREE.Color([0x2f4a22, 0x3b5a28, 0x345225, 0x4d3b28][(k * 4) | 0]);
+    for (let j = 0; j < 3; j++) col.toArray(c, (i + j) * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  const m = new THREE.Mesh(g, World.ps1(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+  scene.add(m);
+  return m;
+})();
+const props = new THREE.Group();
+(() => {
+  const bark = World.ps1(new THREE.MeshLambertMaterial({ map: TEX.bark, color: 0x9a8a78, flatShading: true }));
+  const leaf = World.ps1(new THREE.MeshLambertMaterial({ map: TEX.leaves, color: 0x9fb0a0, flatShading: true }));
+  const r = rng(11);
+  for (let i = 0; i < 9; i++) {
+    const a = -2.2 + i * 0.55 + r() * 0.2, d = 11 + r() * 8;
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.8, 12, 6), bark);
+    t.position.set(Math.sin(a) * d, 6, Math.cos(a) * d);
+    props.add(t);
+    const c = new THREE.Mesh(new THREE.IcosahedronGeometry(3, 0), leaf);
+    c.position.set(t.position.x, 11.5, t.position.z); c.scale.set(1, 0.55, 1);
+    props.add(c);
+  }
+  // an altar and a rock for the spirits
+  const stone = World.ps1(new THREE.MeshLambertMaterial({ map: TEX.stone || TEX.bark, flatShading: true, color: 0x9a9ab0 }));
+  [[3.4, 0.3], [2.6, 0.9], [1.9, 1.5]].forEach(([s, y]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(s, 0.6, s), stone); b.position.set(0, y, 0); b.name = 'altar'; props.add(b); });
+})();
+scene.add(props);
+
+/* ---------- models ---------- */
+
+const env = { player: { x: 0, y: 0, z: 6 }, heightAt: () => 0, t: 0, pulse: 0, songPos: 0 };
+const M = {};  // name -> { obj, place(), tick(dt) }
+let showing = 'wizard';
+
+function build() {
+  const W = Wizard.create();
+  scene.add(W.group);
+  M.wizard = { obj: W, group: W.group, focus: [0, 1.6, 0], tris: () => W.triangles };
+  if (typeof Creatures.moth === 'function') {
+    const moth = Creatures.moth(scene, 0, 2, 0);
+    M.moth = { obj: moth, group: moth.group, focus: [0, 2, 0], tris: () => Creatures.triangles(moth.group) };
+    const warden = Creatures.warden(scene, 0, 0, 0);
+    M.warden = { obj: warden, group: warden.group, focus: [0, 1.9, 0], tris: () => Creatures.triangles(warden.group) };
+    const panther = Creatures.panther(scene, 0, 1.8, 0);
+    M.panther = { obj: panther, group: panther.group, focus: [0, 2.8, 0], tris: () => Creatures.triangles(panther.group) };
+    const toad = Creatures.toad(scene, 0, 0.9, 0);
+    M.toad = { obj: toad, group: toad.group, focus: [0, 1.6, 0], tris: () => Creatures.triangles(toad.group) };
+  }
+}
+
+// Lineup positions (x) when showing everything at once.
+const LINEUP = { moth: -7, warden: -3.6, wizard: 0, panther: 4.2, toad: 8.4 };
+
+function place() {
+  for (const [name, m] of Object.entries(M)) {
+    const on = showing === 'all' || showing === name || (showing === 'game' && name === 'wizard');
+    m.group.visible = on;
+    m.group.position.x = showing === 'all' ? LINEUP[name] : 0;
+    if (name === 'moth' && m.obj.pos) m.obj.pos.x = m.group.position.x;
+  }
+  for (const c of props.children) if (c.name === 'altar') c.visible = showing === 'panther';
+  props.visible = qs.get('props') !== '0';
+}
+
+let songPos = 0, clock = 0, walking = false, speed01 = 1;
+function tick(dt) {
+  clock += dt;
+  songPos += dt / STEP;
+  env.t = clock; env.songPos = songPos; env.pulse = Math.exp(-mod(songPos / 4, 1) * 5);
+  const W = M.wizard && M.wizard.obj;
+  if (W) W.update(dt, { t: clock, speed01, moving: walking, songPos, grounded: true });
+  for (const name of ['moth', 'warden']) {
+    const m = M[name];
+    if (!m) continue;
+    // park the "player" in front so they react, but pin them in place for the showcase
+    env.player.x = m.group.position.x; env.player.z = 6;
+    m.obj.update(dt, env);
+    if (name === 'moth') m.obj.pos.set(m.group.position.x, 2, 0);
+  }
+  if (M.panther) M.panther.obj.update(dt, clock, env.pulse);
+  if (M.toad) M.toad.obj.update(dt, clock, env.pulse);
+}
+
+/* ---------- camera and render ---------- */
+
+const cam = { yaw: 0.6, pitch: 0.12, dist: 6, target: null, fov: 60, auto: !qs.has('frozen') };
+function resize() {
+  const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+  const scale = Math.max(1, Math.ceil(h / 240 - 0.5));
+  renderer.setSize(w, h, false);
+  const rw = Math.round(w / scale), rh = Math.round(h / scale);
+  rt.setSize(rw, rh);
+  post.uniforms.res.value.set(rw, rh);
+  World.SNAP.value.set(rw / 2, rh / 2);
+  camera.aspect = w / h;
+  return { rw, rh, scale };
+}
+function render() {
+  const size = resize();
+  const m = M[showing] || M.wizard;
+  const f = cam.target || (showing === 'all' ? [0.7, 1.7, 0] : m.focus);
+  camera.fov = cam.fov;
+  camera.position.set(f[0] + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, f[1] + Math.sin(cam.pitch) * cam.dist, f[2] + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
+  camera.lookAt(f[0], f[1], f[2]);
+  camera.updateProjectionMatrix();
+  renderer.setRenderTarget(rt);
+  renderer.info.reset();
+  renderer.render(scene, camera);
+  const calls = renderer.info.render.calls;
+  renderer.setRenderTarget(null);
+  renderer.render(postScene, postCam);
+  info.textContent = `${showing}  ${size.rw}x${size.rh}\n` + Object.entries(M).map(([k, v]) => `${k} ${v.tris()} tris`).join('\n') + `\ndraw calls ${calls}`;
+  return { ...size, calls };
+}
+
+/* ---------- test and tooling hook ---------- */
+
+function reset(name) {
+  // rebuild so every pose starts from the same state
+  for (const m of Object.values(M)) scene.remove(m.group);
+  for (const k of Object.keys(M)) delete M[k];
+  build();
+  songPos = 0; clock = 0;
+  if (name) showing = name;
+  place();
+}
+const MV = {
+  ready: false,
+  get models() { return M; },
+  stats() {
+    const out = {};
+    for (const [k, v] of Object.entries(M)) {
+      let meshes = 0;
+      v.group.traverse((o) => { if (o.isMesh || o.isPoints || o.isSprite) meshes++; });
+      out[k] = { tris: v.tris(), meshes };
+    }
+    return out;
+  },
+  // Deterministic pose: rebuild, then simulate at 60 fps.
+  // opts: { model, secs, walk, speed01, act, actAt, emerge, yaw, pitch, dist, target, fov, then(M) }
+  pose(opts = {}) {
+    reset(opts.model || 'wizard');
+    cam.auto = false;
+    walking = !!opts.walk; speed01 = opts.speed01 == null ? 1 : opts.speed01;
+    const dt = 1 / 60, n = Math.round((opts.secs || 1) / dt);
+    const W = M.wizard.obj;
+    if (opts.emerge != null) W.setEmerge(opts.emerge);
+    for (let i = 0; i < n; i++) {
+      if (opts.act && i === Math.round((opts.actAt || 0) / dt)) {
+        const target = M[opts.actOn || 'wizard'];
+        if (target && typeof target.obj[opts.act] === 'function') target.obj[opts.act]();
+        else W.act(opts.act);
+      }
+      tick(dt);
+    }
+    Object.assign(cam, { yaw: 0.6, pitch: 0.12, dist: 6, target: null, fov: 60 }, pick(opts, ['yaw', 'pitch', 'dist', 'target', 'fov']));
+    return render();
+  },
+  view(opts = {}) { Object.assign(cam, opts); return render(); },
+  show(name) { showing = name; place(); return render(); },
+  ui(on) { document.body.classList.toggle('hide', !on); },
+  tick, render, reset,
+};
+function pick(o, keys) { const r = {}; for (const k of keys) if (o[k] !== undefined) r[k] = o[k]; return r; }
+window.MV = MV;
+
+/* ---------- interactive page ---------- */
+
+const info = document.getElementById('info');
+const ui = document.getElementById('ui');
+function button(label, fn) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; ui.appendChild(b); return b; }
+build();
+showing = qs.get('model') || 'wizard';
+place();
+for (const n of ['wizard', 'moth', 'warden', 'panther', 'toad', 'all']) button(n, () => { showing = n; place(); });
+button('walk', () => { walking = !walking; });
+for (const a of ['stomp', 'bolt', 'quake', 'dash', 'hurt', 'die', 'talk', 'emerge']) button(a, () => M.wizard.obj.act(a));
+button('orb', () => M.wizard.obj.setOrbColor([0xffb13b, 0xff4fd8, 0xa57bff][(Math.random() * 3) | 0]));
+button('awaken', () => M.panther && M.panther.obj.awaken());
+button('croak', () => M.toad && M.toad.obj.croak());
+button('spin', () => { cam.auto = !cam.auto; });
+if (qs.get('ui') === '0') MV.ui(false);
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; cam.auto = false; });
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  cam.yaw -= (e.clientX - drag[0]) * 0.01; cam.pitch = clamp(cam.pitch + (e.clientY - drag[1]) * 0.01, -0.4, 1.4); drag = [e.clientX, e.clientY];
+});
+addEventListener('wheel', (e) => { cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.1 : 0.9), 1, 40); });
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (!qs.has('frozen')) {
+    tick(dt);
+    if (cam.auto) cam.yaw += dt * 0.5;
+    render();
+  }
+  requestAnimationFrame(frame);
+}
+render();
+MV.ready = true;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

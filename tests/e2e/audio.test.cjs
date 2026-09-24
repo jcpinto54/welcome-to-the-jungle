@@ -172,21 +172,47 @@ describe('sound engine', { timeout: 120000 }, () => {
     assert.equal(r.ghosts, 0);
   });
 
+  it('a live hit just before its own ghost replaces it, so it never sounds twice in one pass', async () => {
+    const r = await page.evaluate(async () => {
+      const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+      const waitPos = async (p) => { while (Sound.pos() < p) await sleep(1); };
+      const ghostKicks = () => { let n = 0; Sound.drain((e) => { if (e.lane === 'kick' && e.ghost) n++; }); return n; };
+      Sound.resetSong();
+      const q0 = Math.ceil(Sound.pos() / 2) * 2 + 4;
+      await waitPos(q0 - 0.3);
+      Sound.hit('kick'); // recorded at q0
+      const born = Sound.seq.draft.kick[q0 % 32];
+      ghostKicks();
+      await waitPos(q0 + 32 - 0.9); // next pass: its ghost is already scheduled
+      const again = Sound.hit('kick');
+      await waitPos(q0 + 34);
+      const cancelled = ghostKicks();
+      await waitPos(q0 + 66);
+      const next = ghostKicks();
+      Sound.resetSong();
+      return { q0, born, step: again.step, cancelled, next };
+    });
+    assert.equal(r.born, r.q0);
+    assert.equal(r.step, r.q0 % 32);
+    assert.equal(r.cancelled, 0, 'the ghost under the live hit was silenced');
+    assert.equal(r.next, 1, 'and it ghosts again one pass later');
+  });
+
   it('mix: kick, snare and sub on top, pads and hats underneath, a quiet night bed, no clipping', async () => {
     const m = await page.evaluate(async () => { Sound.setProgress(1); return Sound.mixReport(); });
-    const db = (v) => (20 * Math.log10(v)).toFixed(1);
-    console.log('mix (peak / rms / loudest 50 ms, dBFS):\n' + Object.entries(m)
-      .map(([k, v]) => `  ${k.padEnd(6)} ${db(v.peak).padStart(6)} ${db(v.rms).padStart(6)} ${db(v.hot).padStart(6)}`).join('\n'));
+    const db = (v) => (20 * Math.log10(v)).toFixed(1).padStart(6);
+    console.log('mix at full progress, dBFS: peak / rms / loudest 50 ms / same on a phone speaker\n' +
+      Object.entries(m).map(([k, v]) => `  ${k.padEnd(6)} ${db(v.peak)} ${db(v.rms)} ${db(v.hot)} ${db(v.phone)}`).join('\n'));
     for (const lane of ['kick', 'snare', 'bass']) {
       assert.ok(m[lane].peak > 0.3, `${lane} is clearly audible`);
       for (const under of ['pad', 'hats']) {
-        assert.ok(m[lane].hot > m[under].hot * 1.4, `${lane} sits above ${under}`);
-        assert.ok(m[lane].peak > m[under].peak, `${lane} peaks above ${under}`);
+        assert.ok(m[lane].hot > m[under].hot * 2, `${lane} sits at least 6 dB above ${under}`);
+        assert.ok(m[lane].phone > m[under].phone, `${lane} stays above ${under} on a phone speaker`);
       }
     }
     assert.ok(m.pad.rms > 0.01 && m.hats.rms > 0.005, 'pads and hats are still there');
-    assert.ok(m.amb.hot < m.pad.hot * 0.5 && m.amb.rms > 0.0005, 'the night bed is quiet but present');
-    assert.ok(m.mix.peak <= 1, `master peak ${m.mix.peak} does not clip`);
+    assert.ok(m.night.hot < m.mix.hot * 0.1 && m.night.rms > 0.001, 'the night bed is quiet (20 dB under the music) but present');
+    assert.ok(m.mix.peak < 0.95, `the music alone barely touches the master clipper (peak ${m.mix.peak.toFixed(3)})`);
   });
 
   it('logs no console errors', () => {

@@ -11,7 +11,13 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 html = html.replace(/<link rel="stylesheet" href="(src\/[^"]+\.css)">/g, (_, p) => `<style>\n${read(p)}\n</style>`);
 html = html.replace(/<script>window\.THREE \|\| document\.write[^\n]*<\/script>\n/, '');
-html = html.replace(/<script src="(src\/[^"]+\.js)"><\/script>/g, (_, p) => `<script>\n${read(p).replace(/<\/script/gi, '<\\/script')}\n</script>`);
+// The artifact publishes no welcome.mp3, so don't probe for one (a 404 is a console error).
+const inline = (p) => {
+  let src = read(p);
+  if (p === 'src/sound.js') src = src.replace("const SCREAM_URL = 'assets/audio/welcome.mp3';", 'const SCREAM_URL = null;');
+  return src.replace(/<\/script/gi, '<\\/script');
+};
+html = html.replace(/<script src="(src\/[^"]+\.js)"><\/script>/g, (_, p) => `<script>\n${inline(p)}\n</script>`);
 html = html
   .replace(/<!doctype html>\s*/i, '')
   .replace(/<html[^>]*>\s*/i, '')

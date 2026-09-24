@@ -207,5 +207,47 @@ const TEX = (() => {
     for (let X = 0; X < w; X++) for (let Y = 0; Y < h; Y++) if ((Y + X * 7) % 11 < 3) P(x, X % 3 ? '#bff6ff' : '#7ff6ff', X, Y);
   });
 
-  return { bark, moss, stone, cracked, vine, leaves, fern, reeds, frond, bigleaf, hangMoss, lily, cap, rune, glow, mothWing, ground, water, falls };
+  // Cliff rock (grey, tinted by vertex colour): strata, cracks and a few mossy ledges.
+  const rock = make(32, 32, (x, w, h) => {
+    P(x, '#b4b4bc', 0, 0, w, h);
+    speckle(x, w, h, ['#a2a2ac', '#c4c4cc', '#9494a0'], 160);
+    for (let Y = 3; Y < h; Y += 5 + ri(3)) {
+      for (let X = 0; X < w; X++) { P(x, '#7a7a88', X, Y); if (r() < 0.4) P(x, '#d4d4dc', X, Y - 1); }
+    }
+    for (let k = 0; k < 4; k++) { let X = ri(w); for (let Y = ri(h), n = 4 + ri(6); n > 0; n--, Y++) { P(x, '#6a6a78', X, Y % h); if (r() < 0.4) X = mod(X + 1, w); } }
+    for (let i = 0; i < 6; i++) P(x, '#7d9a5a', ri(w), ri(h), 2 + ri(3), 1);
+  });
+
+  // Emissive companions: only the glowing parts are lit (cracks, flowers).
+  const crackedGlow = make(32, 32, (x, w, h) => {
+    const src = cracked.image.getContext('2d').getImageData(0, 0, w, h).data;
+    P(x, '#000', 0, 0, w, h);
+    for (let i = 0; i < w * h; i++) {
+      const R = src[i * 4], G = src[i * 4 + 1], B = src[i * 4 + 2];
+      if (B > 150 && R > 90 && G < 190) { P(x, '#5a3a9a', (i % w) - 1, (i / w) | 0, 3, 1); P(x, `rgb(${R},${G},${B})`, i % w, (i / w) | 0); }
+    }
+  });
+  const vineGlow = make(32, 32, (x, w, h) => {
+    const src = vine.image.getContext('2d').getImageData(0, 0, w, h).data;
+    P(x, '#000', 0, 0, w, h);
+    for (let i = 0; i < w * h; i++) if (src[i * 4] > 200 && src[i * 4 + 3] > 0) P(x, '#ff4fd8', i % w, (i / w) | 0);
+  });
+
+  // Foam ring texture (alpha-tested).
+  const foam = make(32, 32, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    for (let i = 0; i < 200; i++) P(x, r() < 0.5 ? '#e8fbff' : '#a8dcea', ri(w), ri(h), 1 + ri(3), 1);
+  });
+
+  // The pyramid's eye.
+  const eye = make(32, 16, (x) => {
+    x.clearRect(0, 0, 32, 16);
+    x.fillStyle = '#e9e3cf'; x.beginPath(); x.ellipse(16, 8, 15, 7, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#2fe0ff'; x.beginPath(); x.arc(16, 8, 6, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#0b8aa8'; x.beginPath(); x.arc(16, 8, 4, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#07060f'; x.fillRect(14, 4, 4, 8); x.fillStyle = '#fff'; x.fillRect(11, 4, 2, 2);
+  }, false);
+
+  return { bark, moss, stone, cracked, vine, leaves, fern, reeds, frond, bigleaf, hangMoss, lily, cap, rune, glow, mothWing, ground, water, falls,
+    rock, crackedGlow, vineGlow, foam, eye };
 })();
