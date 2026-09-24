@@ -2,6 +2,8 @@
 
 ## The pitch
 
+A mobile game: it plays in iPhone Safari and Android Chrome in landscape, and installs to the home screen like an app. App Store and Play Store builds come later by wrapping the same code with Capacitor, which needs a Mac with Xcode.
+
 You are the Jungle Wizard: a swamp creature made of bark, roots and moss, torn out of a giant tree at the start of the game. The jungle has gone grey and silent. Your spells are drums. Every stomp is a kick, every bolt is a snare, every quake is a sub-bass drop, and they all lock to a 170 BPM lo-fi jungle groove. The jungle loops back what you play. Carve those loops into the Loop Stones and colour floods back into the world. Finish the song and the Lost Pyramid opens.
 
 It opens with a scream of "WELCOME TO THE JUNGLE", and after that there's nothing but lo-fi jungle and drum & bass.
@@ -21,15 +23,17 @@ He is a tree spirit rather than a storybook wizard. He's tall, hunched and gnarl
 
 | You do | You hear | In the world |
 |---|---|---|
-| **Stomp** (Space) | Kick | Shockwave around you; mushrooms bounce |
-| **Bolt** (left mouse) | Snare | Magenta bolt; burns vine walls |
-| **Quake** (right mouse) | Sub bass | Roots burst from the ground; breaks cracked stone |
-| **Dash** (Shift) | A whoosh | Not recorded |
+| **Stomp** (big orange button · Space) | Kick | Shockwave around you; mushrooms bounce |
+| **Bolt** (magenta button · left mouse) | Snare | Magenta bolt that auto-aims on touch; burns vine walls |
+| **Quake** (violet button · right mouse) | Sub bass | Roots burst from the ground; breaks cracked stone |
+| **Dash** (small button · Shift) | A whoosh | Not recorded |
+
+On a phone, your left thumb steers with a floating joystick and your right thumb plays the spell buttons. Dragging on the right half turns the camera. An action button appears when there's something to carve, talk to or open.
 
 - **In the pocket.** Cast on the beat (within ±75 ms) and the spell hits harder.
 - **The draft loop.** Every spell is written into a two-bar loop (32 steps) shown at the bottom of the screen. The jungle plays your draft back as quiet ghost hits, so you hear your groove forming.
-- **Loop Stones.** Press E at a stone to carve the draft into the song. Carved hits play at full volume from then on, and the world gets its colour back.
-- **Spellbook** (Tab). A step sequencer where you can tweak the carved song cell by cell.
+- **Loop Stones.** Tap the action button (E on a keyboard) at a stone to carve the draft into the song. Carved hits play at full volume from then on, and the world gets its colour back.
+- **Spellbook** (the book button · Tab). A step sequencer where you can tweak the carved song cell by cell.
 
 ## The world
 

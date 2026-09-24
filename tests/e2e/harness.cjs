@@ -3,16 +3,19 @@
 // (no network needed) and records every console error so tests can fail on them.
 const path = require('node:path');
 const fs = require('node:fs');
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SHOTS = path.join(__dirname, 'shots');
 
-async function openGame({ width = 1280, height = 720, file = 'index.html' } = {}) {
+// device: a Playwright device name (e.g. 'iPhone 13 landscape') for touch + phone viewport emulation.
+async function openGame({ width = 1280, height = 720, file = 'index.html', device = null } = {}) {
   const browser = await chromium.launch({
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
   });
-  const page = await browser.newPage({ viewport: { width, height } });
+  const opts = device ? { ...devices[device] } : { viewport: { width, height } };
+  delete opts.defaultBrowserType;
+  const page = await browser.newPage(opts);
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));

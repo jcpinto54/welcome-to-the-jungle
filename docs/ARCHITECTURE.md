@@ -4,7 +4,7 @@ This is the contract every module is built against. Keep it true: if you change 
 
 ## The game in one paragraph
 
-A PS1-style, low-poly 3D action-RPG for desktop browsers. You are the Jungle Wizard: a swamp-born tree creature torn out of a giant tree at the start. He has a bark body, root feet, a moss cloak, a long Spanish-moss beard, a crooked bark wizard hat with little glowing mushrooms, glowing eyes in a hollow face and a gnarled root staff with a glowing orb. He is not a cute or cartoon wizard. The jungle has gone grey and silent. Your spells are drums, locked to a 170 BPM lo-fi jungle groove:
+A PS1-style, low-poly 3D action-RPG for **phones** (iPhone Safari first, Android Chrome too; desktop keyboard/mouse still works). You are the Jungle Wizard: a swamp-born tree creature torn out of a giant tree at the start. He has a bark body, root feet, a moss cloak, a long Spanish-moss beard, a crooked bark wizard hat with little glowing mushrooms, glowing eyes in a hollow face and a gnarled root staff with a glowing orb. He is not a cute or cartoon wizard. The jungle has gone grey and silent. Your spells are drums, locked to a 170 BPM lo-fi jungle groove:
 
 - **Stomp = KICK** (Space): staff slam with a ground shockwave around you.
 - **Bolt = SNARE** (left mouse or J): a magenta bolt that flies where you aim.
@@ -20,7 +20,9 @@ Aesthetic source: the "jungle wizard" YouTube channel (@junglewizards): ambient 
 - Three.js **r159 UMD** (`THREE` global), loaded from `https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js` with a fallback to `vendor/three.min.js`. There are no ES modules and no build step. Every file in `src/` is a classic script that defines **one global** (`const Foo = (() => { ... })();`). Opening `index.html` from disk must work.
 - `THREE.ColorManagement.enabled = false` and `renderer.outputColorSpace = LinearSRGBColorSpace`, so hex colours are used as written.
 - PS1 look: the scene renders into a 270-line render target, upscaled with nearest filtering (`render.js`). Materials get vertex snapping through `World.ps1(material)`. Textures are tiny canvases with `NearestFilter` (`textures.js`). Geometry is low-poly with flat shading.
-- Target is a desktop browser (keyboard and mouse, pointer lock). Keep it at 60 fps on a laptop: instancing for vegetation, few lights.
+- **Target is mobile, landscape.** iPhone Safari (iOS 16+) first, Android Chrome second, desktop keyboard/mouse still supported (and used by the tests). A portrait phone shows a "rotate your phone" screen. Respect the notch with `env(safe-area-inset-*)`. The game is also a PWA (manifest plus service worker) so it installs to the home screen and runs full-screen. App Store and Play Store builds come later by wrapping the same files with Capacitor.
+- **Mobile performance budget:** a typical view stays under 100 draw calls and 250k triangles, at most 3 dynamic point lights, no shadows, little alpha overdraw. The render target is about 240 lines with an integer upscale factor (e.g. 195 lines on a 390px-tall phone). `World.build(scene, {quality: 'low'|'high'})` thins vegetation on weak devices.
+- **iOS audio:** resume the AudioContext inside the first touch handler. Set `navigator.audioSession.type = 'playback'` where it exists, so the silent switch doesn't mute the game. Resume after interruptions and on `visibilitychange`.
 - Artifact constraints (the game is also published as a single HTML page). Scripts may only come from cdnjs, jsdelivr or unpkg, fonts only from Google Fonts. Nothing else external. No `alert`, `confirm` or `prompt`, and no downloads.
 - **Pure logic must be Node-testable.** The modules marked *pure* must not touch `THREE`, `document` or `AudioContext` at load time. Tests load `src/*.js` into a `vm` context through `tests/helpers/load.js`.
 
@@ -39,6 +41,7 @@ src/render.js            Render: renderer, low-res target, post shader
 src/wizard.js            Wizard: the tree wizard model and procedural animation
 src/creatures.js         Creatures: moths, warden, Panther Spirit, Sub Toad (models and AI)
 src/quest.js       pure  Quest: objectives and progression state machine
+src/input.js             Input: keyboard, mouse and touch (joystick, camera drag, spell buttons) as one input state
 src/ui.js                UI: DOM HUD, dialogue, spellbook, overlays
 src/game.js              Game: input, camera, player, spells, combat, states, glue
 ```
@@ -137,6 +140,32 @@ q.objective() -> { id, text, target: [x, z] | null }   first unfinished step, in
 q.event(name, arg) -> [messages]   names: 'carve'(i), 'spirit'('panther'|'toad'), 'vines', 'gate', 'pyramid'
 q.pyramidReady(hasFullGroove) -> { ok, missing: [...] }
 ```
+
+### Input (`src/input.js`)
+
+One input state for touch, keyboard and mouse. The touch controls are DOM elements inside `#ui`, styled in style.css:
+- a floating joystick on the left half of the screen
+- camera drag on the right half
+- a spell cluster at the bottom right: STOMP (kick, the biggest button), BOLT (snare), QUAKE (bass) and DASH, each with a cooldown sweep and a locked look
+- a contextual action button (CARVE / TALK / OPEN)
+- BOOK, PAUSE and MUTE at the top right
+Touching a button never also drags the camera. Press times use the event's `timeStamp` (the rhythm judge needs it).
+
+```
+Input.init(canvas, root)
+Input.move -> {x, y}            -1..1 from the joystick or WASD (y = forward)
+Input.consumeLook() -> {dx, dy} camera deltas since the last call (touch drag or mouse), in pixels
+Input.consume() -> [{action, t}] presses since the last call; actions: stomp, bolt, quake, dash, interact, book, pause, mute, advance
+Input.isTouch                   true once a touch has been seen (show the touch layout)
+Input.setMode('play'|'dialogue'|'book'|'menu')   which controls are visible and active
+Input.setInteract(label|null)   show or hide the contextual action button
+Input.setAbilities({stomp, bolt, quake, dash: {unlocked, cd01}})
+Input.vibrate(ms)               haptic tick where supported (Android; iOS ignores it)
+```
+
+On touch, bolts auto-aim at the nearest enemy or target in front of the wizard (game.js). Desktop uses the crosshair.
+
+Stable hooks for tests: every touch button has `data-action="stomp|bolt|quake|dash|interact|book|pause|mute"`, the joystick area has `data-touch="joystick"`, the camera drag area has `data-touch="look"`, and the portrait overlay has `data-overlay="rotate"`.
 
 ### UI (`src/ui.js`, `src/style.css`)
 
