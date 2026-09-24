@@ -44,7 +44,10 @@ window.tick = (seconds, pulse = 0.5) => {
 };
 window.act = (name, ...args) => { World[name](...args); draw(); };
 window.stats = () => ({ ...Render.stats, buildMs: window.buildMs });
-const v = (location.hash.slice(1) || '-52,6,44,-74,14,70,1').split(',').map(Number);
+const v = (location.hash.slice(1) || '-58,5.5,50,-74,13,70,1').split(',').map(Number);
 view(...v);
+const info = Render.renderer.info;
+console.log(`[viewer] ${quality} build ${buildMs.toFixed(0)} ms, ${info.render.calls} draw calls, ${info.render.triangles} triangles,`,
+  `${info.memory.geometries} geometries, ${info.memory.textures} textures, ${info.programs.length} programs, target ${Render.stats.width}x${Render.stats.height}`);
 window.addEventListener('resize', () => last && view(...last));
 </script>

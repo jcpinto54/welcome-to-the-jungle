@@ -209,8 +209,8 @@ const Wizard = (() => {
     ] },
     die: { dur: 1.9, hold: true, keys: [
       [0.25, { by: -0.3, cx: 0.4, sx: 0.2, kx: 0.4, lsx: -0.1, rsx: -0.2, le: -0.4, jaw: 0.35, tz: 0.3, eye: -0.3, shake: 1 }],
-      [0.75, { by: -0.72, hx: 0.25, cx: 0.8, sx: 0.5, kx: 0.5, lsz: 0.9, rsz: 0.8, lsx: -0.3, rsx: -0.4, le: -0.4, re: -0.8, tz: 1.3, tx: 0.3, sink: 0.25, eye: -0.6, jaw: 0.4 }, 'in'],
-      [1.9, { by: -0.85, hx: 0.3, cx: 0.85, sx: 0.5, kx: 0.3, lsz: 1.1, rsz: 1.0, lsx: -0.4, rsx: -0.5, le: -0.4, re: -0.8, tz: 1.45, tx: 0.3, sink: 0.72, eye: -1, orb: -0.9, jaw: 0.4 }],
+      [0.75, { by: -0.62, cx: 0.45, sx: 0.25, kx: 0.45, lsz: 0.7, rsz: 0.6, lsx: -0.2, rsx: -0.3, le: -0.3, re: -0.6, tz: 1.0, tx: 0.2, sink: 0.2, eye: -0.6, jaw: 0.4 }, 'in'],
+      [1.9, { by: -0.75, hx: -0.05, cx: 0.1, sx: 0.05, kx: 0.5, lsz: 0.55, rsz: 0.5, lsx: -0.1, le: 0.2, re: 0.2, tz: 1.2, tx: 0.2, sink: 0.95, eye: -1, orb: -0.9, jaw: 0.4 }],
     ] },
     talk: { dur: 1.5, keys: [
       [0.28, { lsx: 1.0, le: 1.15, lsz: 0.25, lsy: -0.3, lwx: -0.3, kx: -0.12, kz: 0.12, cx: -0.06 }],

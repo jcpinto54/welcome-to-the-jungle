@@ -44,6 +44,7 @@ src/quest.js       pure  Quest: objectives and progression state machine
 src/input.js             Input: keyboard, mouse and touch (joystick, camera drag, spell buttons) as one input state
 src/ui.js                UI: DOM HUD, dialogue, spellbook, overlays
 src/game.js              Game: input, camera, player, spells, combat, states, glue
+src/pwa.js               PWA: registers sw.js (skips iframes, file:// and localhost without #sw)
 ```
 
 ## Interfaces

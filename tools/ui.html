@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UI gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<link rel="stylesheet" href="../src/style.css">
+<style>
+  .gal-index { position: fixed; inset: 0; z-index: 100; overflow: auto; padding: 24px; box-sizing: border-box; background: #07060fe0; color: #f2f5ff; font: 22px/1.3 'VT323', monospace; }
+  .gal-index h1 { font: 16px/1 'Silkscreen', monospace; color: #7ff6ff; margin: 0 0 16px; }
+  .gal-index a { display: inline-block; margin: 0 12px 10px 0; padding: 6px 12px; color: #f2f5ff; border: 2px solid #7ff6ff66; text-decoration: none; }
+  .gal-index a:hover, .gal-index a:focus-visible { border-color: #7ff6ff; background: #7ff6ff22; outline: none; }
+</style>
+</head>
+<body>
+<main id="game">
+  <canvas id="screen" aria-label="placeholder scene"></canvas>
+  <div id="ui"></div>
+</main>
+<script src="../src/core.js"></script>
+<script src="../src/quest.js"></script>
+<script src="../src/input.js"></script>
+<script src="../src/ui.js"></script>
+<script>
+'use strict';
+// Dev tool: renders every UI state with mock data. The URL hash picks the state, e.g. ui.html#book.
+
+// A dusky low-res jungle so the HUD is judged against something like the game view.
+function paintBackdrop() {
+  const c = document.getElementById('screen');
+  const W = 320, H = Math.max(120, Math.round((320 * innerHeight) / innerWidth));
+  c.width = W; c.height = H;
+  const g = c.getContext('2d'), r = rng(11);
+  const sky = g.createLinearGradient(0, 0, 0, H * 0.62);
+  sky.addColorStop(0, '#120c2c'); sky.addColorStop(0.6, '#3a2560'); sky.addColorStop(1, '#2f6a6a');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  const horizon = Math.round(H * 0.6);
+  g.fillStyle = '#26184a';
+  g.beginPath(); g.moveTo(W * 0.62, horizon); g.lineTo(W * 0.74, H * 0.3); g.lineTo(W * 0.86, horizon); g.fill();
+  g.fillStyle = '#ff4fd8'; g.fillRect(Math.round(W * 0.74) - 1, Math.round(H * 0.4), 3, 2);
+  for (let i = 0; i < 7; i++) { g.fillStyle = i % 2 ? '#1b3b35' : '#15302c'; const x = r() * W; g.fillRect(x, horizon - 30 - r() * 30, 6 + r() * 6, 60); }
+  g.fillStyle = '#10261f'; g.fillRect(0, horizon, W, H - horizon);
+  g.fillStyle = '#2a3a26';
+  g.beginPath(); g.moveTo(W * 0.42, H); g.lineTo(W * 0.5, horizon); g.lineTo(W * 0.54, horizon); g.lineTo(W * 0.66, H); g.fill();
+  for (let i = 0; i < 16; i++) {
+    const x = r() * W, y = horizon + r() * (H - horizon), s = 10 + r() * 26;
+    g.fillStyle = ['#0c2419', '#12331f', '#0a1d16', '#1a4a2a'][i % 4];
+    g.beginPath(); g.ellipse(x, y, s, s * 0.5, r() * 3, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 5; i++) { g.fillStyle = '#0a0a14'; const x = (i / 5) * W + r() * 30; g.fillRect(x, 0, 5 + r() * 5, H); g.fillStyle = '#123624'; g.beginPath(); g.ellipse(x + 4, 8 + r() * 30, 34, 14, 0, 0, 7); g.fill(); }
+  for (let i = 0; i < 12; i++) { const x = r() * W, y = horizon + 6 + r() * (H - horizon - 10); g.fillStyle = '#ff9a3c'; g.fillRect(x, y, 3, 2); g.fillStyle = '#fff2c0'; g.fillRect(x + 1, y + 2, 1, 2); }
+  for (let i = 0; i < 26; i++) { g.fillStyle = r() > 0.5 ? '#e9ff6b' : '#b6ff9e'; g.fillRect(r() * W, r() * H * 0.9, 1, 1); }
+  const fog = g.createLinearGradient(0, horizon - 20, 0, horizon + 26);
+  fog.addColorStop(0, '#7ff6ff00'); fog.addColorStop(0.5, '#9fd8e033'); fog.addColorStop(1, '#7ff6ff00');
+  g.fillStyle = fog; g.fillRect(0, horizon - 20, W, 46);
+}
+
+const LN = ['kick', 'snare', 'bass'];
+function mockSeq(song, draft) {
+  const s = { song: {}, draft: {} };
+  for (const l of LN) { s.song[l] = new Array(LOOP).fill(0); s.draft[l] = new Array(LOOP).fill(false); }
+  for (const l in song) for (const i of song[l]) s.song[l][i] = 1;
+  for (const l in draft) for (const i of draft[l]) s.draft[l][i] = true;
+  const copy = () => ({ song: Object.fromEntries(LN.map((l) => [l, s.song[l].slice()])), draft: Object.fromEntries(LN.map((l) => [l, s.draft[l].slice()])) });
+  return {
+    snapshot: copy,
+    toggle(l, i) { s.song[l][i] ^= 1; return s.song[l][i]; },
+    clearLane(l) { s.song[l].fill(0); },
+  };
+}
+
+const L = { stone1: [-26, 1], altar: [14, -2], gate1: [14, -11], stone2: [21, -51], toad: [39, -57], gate2: [61, -70], stone3: [70, -86], pyramid: [90, -102] };
+const ab = (bolt, quake, cds = [0, 0, 0, 0]) => ({
+  stomp: { unlocked: true, cd01: cds[0] }, bolt: { unlocked: bolt, cd01: cds[1] }, quake: { unlocked: quake, cd01: cds[2] }, dash: { unlocked: true, cd01: cds[3] },
+});
+
+const seqStart = mockSeq({}, { kick: [0, 8, 16, 26] });
+const seqMid = mockSeq({ kick: [0, 10, 16, 26] }, { snare: [4, 12, 20, 28], kick: [22] });
+const seqLate = mockSeq({ kick: [0, 10, 16, 26], snare: [4, 12, 20, 28, 30], bass: [0, 6, 16, 22] }, { bass: [26], snare: [14] });
+
+const questMid = Quest.create(L);
+questMid.event('carve', 0); questMid.event('spirit', 'panther'); questMid.event('vines');
+const questLate = Quest.create(L);
+for (const [n, a] of [['carve', 0], ['spirit', 'panther'], ['vines'], ['carve', 1], ['spirit', 'toad'], ['gate'], ['carve', 2]]) questLate.event(n, a);
+
+const hudOf = (q, seq, o) => Object.assign({
+  objective: Object.assign({ text: q.objective().text }, o.obj), snap: seq.snapshot(), chord: 'FMAJ9', beat01: 0.9, locked: true,
+}, o);
+const HUD = {
+  start: hudOf(Quest.create(L), seqStart, { vibe: 3, maxVibe: 3, fireflies: 0, level: 1, xp01: 0.08, step: 2, obj: { angle: -0.45, dist: 18 }, abilities: ab(false, false), beat01: 0.2 }),
+  mid: hudOf(questMid, seqMid, { vibe: 3.5, maxVibe: 5, fireflies: 27, level: 3, xp01: 0.62, step: 12, chord: 'EM7', obj: { angle: 0.7, dist: 42 }, abilities: ab(true, false, [0, 0.45, 0, 0.8]) }),
+  late: hudOf(questLate, seqLate, { vibe: 1, maxVibe: 6, fireflies: 112, level: 7, xp01: 0.9, step: 21, chord: 'DM9', obj: { angle: 0.05, dist: 3 }, abilities: ab(true, true, [0.3, 0, 0.65, 0]) }),
+};
+window.HUD = HUD;
+window.calls = [];
+
+const bookHandlers = (seq, quest) => ({
+  toggle: (lane, step) => { calls.push(['toggle', lane, step]); return seq.toggle(lane, step); },
+  clearLane: (lane) => { calls.push(['clearLane', lane]); seq.clearLane(lane); },
+  close: () => { calls.push(['close']); UI.closeBook(); },
+  quest,
+});
+
+let loops = [];
+const every = (ms, fn) => { fn(); loops.push(setInterval(fn, ms)); };
+
+const STATES = {
+  hud() {
+    UI.update(HUD.mid);
+    UI.prompt('[E] Carve the Loop Stone');
+    Input.setInteract('CARVE');
+    every(4000, () => { UI.toast('LOOP STONE I CARVED', 'carve'); UI.toast('STAFF BLAST UNLOCKED · SNARE', 'unlock'); });
+    every(1200, () => { UI.pocket('kick'); setTimeout(() => UI.pocket('snare'), 120); });
+  },
+  'hud-start'() { UI.update(HUD.start); every(4000, () => UI.toast('STOMP ON THE BEAT · SPACE', 'kick')); },
+  'hud-late'() {
+    UI.update(HUD.late);
+    UI.prompt('[E] Open the Lost Pyramid');
+    Input.setInteract('OPEN');
+    every(1200, () => UI.pocket('bass'));
+    every(4000, () => UI.toast('THE EYE WANTS LOOP STONE III', 'warn'));
+  },
+  zone() { UI.update(HUD.start); every(4200, () => UI.toast('the summoning swamp 召喚', 'zone')); },
+  dialogue() {
+    UI.update(HUD.mid);
+    Input.setMode('dialogue');
+    UI.dialogue(Quest.SPEAKERS.panther, Quest.LINES.panther, () => calls.push(['dialogue-done']));
+    UI.advance(); UI.advance(); UI.advance();
+  },
+  book() {
+    UI.update(HUD.mid);
+    Input.setMode('book');
+    UI.openBook(seqMid, bookHandlers(seqMid, questMid));
+  },
+  'book-late'() {
+    UI.update(HUD.late);
+    Input.setMode('book');
+    UI.openBook(seqLate, bookHandlers(seqLate, questLate));
+  },
+  boot() { Input.setMode('menu'); UI.showBoot(() => calls.push(['start'])); },
+  intro() { Input.setMode('menu'); every(2400, () => UI.introWord('WELCOME', 0)); },
+  'intro-2'() { Input.setMode('menu'); every(2400, () => UI.introWord('JUNGLE', 2)); },
+  title() { Input.setMode('menu'); UI.title(true); },
+  pause() { UI.update(HUD.mid); Input.setMode('menu'); UI.pause(true); },
+  end() {
+    Input.setMode('menu');
+    UI.end({ time: 1234, fireflies: 112, level: 7, pocket: 0.64, moths: 23, carved: 30 },
+      { jam: () => calls.push(['jam']), replay: () => calls.push(['replay']) });
+  },
+  rotate() { UI.showBoot(() => calls.push(['start'])); },
+};
+window.STATES = Object.keys(STATES);
+
+function show() {
+  for (const t of loops) clearInterval(t);
+  loops = [];
+  document.querySelector('.gal-index')?.remove();
+  const name = decodeURIComponent(location.hash.slice(1));
+  UI.init(document.getElementById('ui'));
+  Input.init(document.getElementById('screen'), document.getElementById('ui'));
+  Input.setMode('play');
+  if (STATES[name]) STATES[name]();
+  else {
+    const nav = document.createElement('nav');
+    nav.className = 'gal-index';
+    nav.innerHTML = '<h1>JUNGLE WIZARD · UI GALLERY</h1>' + Object.keys(STATES).map((s) => `<a href="#${s}">${s}</a>`).join('');
+    document.body.appendChild(nav);
+  }
+  window.galleryState = name;
+}
+
+paintBackdrop();
+addEventListener('resize', paintBackdrop);
+addEventListener('hashchange', show);
+show();
+</script>
+</body>
+</html>

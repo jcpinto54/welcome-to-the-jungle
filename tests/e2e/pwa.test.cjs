@@ -5,8 +5,9 @@
 // index.html (so they can edit files and don't depend on the game being finished); the
 // last test runs the real index.html once all of its scripts exist.
 
-// Playwright only routes a service worker's own fetches, and only takes it offline with
-// context.setOffline(), when this is set before the browser starts.
+// Playwright only routes a service worker's own fetches when this is set before the browser
+// starts. (context.setOffline() reaches the worker too, but only until the page reloads, so
+// "offline" below also aborts every routed request and checks the server saw nothing.)
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
 
 const { test, describe, before, after } = require('node:test');
@@ -283,21 +284,27 @@ const ping = (url) => new Promise((resolve) => {
   http.get(url, (res) => { res.resume(); resolve(res.statusCode); }).on('error', () => resolve(0));
 });
 
+// http-server with its request log on, so a test can prove nothing reached it while offline.
 async function serve(dir) {
   const port = await freePort();
-  const proc = spawn(process.execPath, [HTTP_SERVER, dir, '-p', String(port), '-a', '127.0.0.1', '-c-1', '-s'], { stdio: 'ignore' });
+  const proc = spawn(process.execPath, [HTTP_SERVER, dir, '-p', String(port), '-a', '127.0.0.1', '-c-1'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  let requests = 0;
+  proc.stdout.on('data', (d) => { requests += String(d).split('\n').filter((l) => /"GET /.test(l) && !/" Error \(/.test(l)).length; });
   const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 100 && (await ping(base + '/sw.js')) !== 200; i++) await new Promise((r) => setTimeout(r, 100));
   assert.equal(await ping(base + '/sw.js'), 200, 'http-server is up');
-  return { base, stop: () => proc.kill() };
+  return { base, stop: () => proc.kill(), requests: () => requests };
 }
 
-// Serves the CDN files locally (or fails them while "offline") and blocks everything else external.
+// Serves the CDN files locally and blocks everything else external. Offline, every request
+// fails, same-origin ones included: context.setOffline() alone stops covering a service
+// worker's own fetches after the page reloads.
 async function fakeInternet(context, THREE_SRC) {
   const netState = { offline: false, three: 0, fonts: 0 };
-  await context.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, (route) => {
+  await context.route(/^https?:\/\//, (route) => {
     const url = route.request().url();
     if (netState.offline) return route.abort('internetdisconnected');
+    if (new URL(url).hostname === '127.0.0.1') return route.continue();
     if (url === THREE_CDN) {
       netState.three++;
       return route.fulfill({ body: THREE_SRC + '\n;window.__threeFrom = "cdn";', contentType: 'application/javascript' });
@@ -332,6 +339,22 @@ const controlled = async (page) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 10000 });
 };
+
+// Goes offline once the server's log has caught up; returns its request count at that point.
+async function goOffline(net, page, server) {
+  await page.waitForTimeout(300);
+  await net.goOffline();
+  return server.requests();
+}
+
+// Proves the page loads since goOffline() really were offline: the worker's own fetches
+// fail, and the server saw no request since `since`.
+async function assertStayedOffline(page, server, since) {
+  const probe = await page.evaluate(() => fetch('probe.txt?' + Date.now()).then(() => 'online', () => 'offline'));
+  assert.equal(probe, 'offline', 'the service worker cannot reach the network');
+  await page.waitForTimeout(300); // let the server's log catch up
+  assert.equal(server.requests(), since, 'no request reached the server while offline');
+}
 
 describe('in a browser over http', { skip: !chromium ? 'playwright is not installed' : !HTTP_SERVER ? 'http-server is not installed' : false }, () => {
   let browser, site, server, THREE_SRC, sw;
@@ -449,11 +472,7 @@ describe('in a browser over http', { skip: !chromium ? 'playwright is not instal
       await page.goto(server.base + '/#sw');
       await controlled(page);
 
-      await net.goOffline();
-      const probe = await page.evaluate(() => fetch('probe.txt?' + Date.now()).then(() => 'online', () => 'offline'));
-      assert.equal(probe, 'offline', 'the worker itself is offline too');
-      errors.length = 0; // the probe's failed fetch is logged
-
+      const since = await goOffline(net, page, server);
       await page.reload();
       assert.equal(await page.textContent('#marker'), 'v1', 'the cached page');
       assert.equal(await page.evaluate(() => typeof THREE), 'object', 'three.js ran (the vendored copy stands in for the CDN)');
@@ -462,7 +481,10 @@ describe('in a browser over http', { skip: !chromium ? 'playwright is not instal
 
       await page.goto(server.base + '/index.html#sw');
       assert.equal(await page.textContent('#marker'), 'v1', 'index.html is cached under its own name too');
+      await page.goto(server.base + '/?source=homescreen#sw');
+      assert.equal(await page.textContent('#marker'), 'v1', 'a launch URL with a query string still finds the page');
       assert.deepEqual(errors, []);
+      await assertStayedOffline(page, server, since);
     } finally {
       await context.close();
     }
@@ -480,7 +502,7 @@ describe('in a browser over http', { skip: !chromium ? 'playwright is not instal
       assert.equal(await page.textContent('#marker'), 'v2', 'network first: an edited file shows up on the next reload');
       assert.equal(await page.evaluate(() => window.__threeFrom), 'cdn');
 
-      await net.goOffline();
+      const since = await goOffline(net, page, server);
       await page.reload();
       assert.equal(await page.textContent('#marker'), 'v2', 'the cache was refreshed from the network');
       assert.equal(await page.evaluate(() => window.__threeFrom), 'cdn', 'three.js from the CDN, kept by the worker');
@@ -488,6 +510,9 @@ describe('in a browser over http', { skip: !chromium ? 'playwright is not instal
         assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fonts').trim()), '1',
           'the Google Fonts stylesheet was kept too');
       }
+      assert.deepEqual(errors, []);
+      await assertStayedOffline(page, server, since);
+      errors.length = 0; // the probe's failed fetch is logged
 
       // Back online a cached CDN file is served at once and refreshed in the background.
       await net.goOffline(false);
@@ -524,11 +549,13 @@ test('the real index.html loads offline after the first visit', {
     await booted();
     await controlled(page);
 
-    await net.goOffline();
+    const since = await goOffline(net, page, server);
     await page.reload();
     await booted();
     assert.equal(await page.title(), 'Jungle Wizard');
-    assert.deepEqual(errors, []);
+    // assets/audio/welcome.mp3 is optional (see DESIGN.md): the probe for it may 404 or fail offline.
+    assert.deepEqual(errors.filter((e) => !/\/assets\/audio\//.test(e)), []);
+    await assertStayedOffline(page, server, since);
   } finally {
     await browser.close();
     server.stop();

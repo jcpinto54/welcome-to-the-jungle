@@ -185,7 +185,7 @@ const World = (() => {
   const C = (hex) => new THREE.Color(hex);
   const RGB = (r, g, b) => new THREE.Color(r, g, b);
   const RUIN = RGB(1.32, 1.2, 1.02), RUIN2 = RGB(1.2, 1.12, 1.0), MOSSY = RGB(0.8, 1.12, 0.6), MONO = RGB(1.5, 1.42, 1.3);
-  const PYR = RGB(1.62, 1.34, 1.12), PYR2 = RGB(1.5, 1.24, 1.08), PAD = RGB(1.1, 1.05, 1.0);
+  const PYR = RGB(1.62, 1.34, 1.12), PYR2 = RGB(1.5, 1.24, 1.08), PAD = RGB(0.8, 0.76, 0.74);
   const TEAL = C(0x1f4a44), OLIVE = C(0x4a5222), DIRT = C(0x9a7048), DIRT2 = C(0x6e5236), MUD = C(0x363826), ASH = C(0x524a60);
   const PLAT = C(0x2c5048), GRIDC = C(0x1c1636), PAVE = C(0x4e5244), ROCK = C(0x5a5870), ROCK2 = C(0x474660), MOSS = C(0x4a6a34);
   function groundColor(x, y, z, out) {
@@ -205,7 +205,8 @@ const World = (() => {
   function rockColor(x, y, z, out) {
     const n = vnoise(x * 0.21 + y * 0.35, z * 0.21 - y * 0.2);
     out.copy(ROCK2).lerp(ROCK, n);
-    return out.lerp(MOSS, smoothstep(0.6, 0.85, vnoise(x * 0.09, z * 0.09 + y * 0.12)) * 0.6);
+    out.lerp(MOSS, smoothstep(0.5, 0.8, vnoise(x * 0.09, z * 0.09 + y * 0.12)) * 0.7);
+    return out.multiplyScalar(0.8 + 0.35 * smoothstep(-0.2, 0.6, Math.sin(y * 1.7 + n * 3))); // ledges catch the light
   }
 
   /* ---------- build ---------- */
@@ -223,13 +224,15 @@ const World = (() => {
     /* ----- ground: grass and dirt on one mesh, cliff rock on another ----- */
     {
       const { size, n, half } = GRID, row = n + 1;
-      const P = new Float32Array(row * row * 3);
-      for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
-        const x = -half + i * size, z = -half + j * size, k = (j * row + i) * 3;
-        P[k] = x; P[k + 1] = heightAt(x, z); P[k + 2] = z;
+      const P = new Float32Array(row * row * 3), G = new Float32Array(row * row * 3), K = new Float32Array(row * row * 3);
+      const c = new THREE.Color(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3();
+      for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) { // positions and both colours, once per vertex
+        const x = -half + i * size, z = -half + j * size, k = (j * row + i) * 3, y = heightAt(x, z);
+        P[k] = x; P[k + 1] = y; P[k + 2] = z;
+        groundColor(x, y, z, c).toArray(G, k);
+        rockColor(x, y, z, c).toArray(K, k);
       }
       const sets = [{ pos: [], col: [], uv: [] }, { pos: [], col: [], uv: [] }];
-      const c = new THREE.Color(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3();
       const tri = (ka, kb, kc, seed) => {
         const ax = P[ka * 3], ay = P[ka * 3 + 1], az = P[ka * 3 + 2];
         e1.set(P[kb * 3] - ax, P[kb * 3 + 1] - ay, P[kb * 3 + 2] - az);
@@ -237,11 +240,11 @@ const World = (() => {
         nn.crossVectors(e1, e2).normalize();
         const steep = Math.sqrt(1 - nn.y * nn.y) / Math.max(nn.y, 1e-3) > MAX_SLOPE;
         const s = sets[steep ? 1 : 0], jit = 0.93 + hash2(seed, 7) * 0.14, side = Math.abs(nn.x) > Math.abs(nn.z);
+        const src = steep ? K : G;
         for (const k of [ka, kb, kc]) {
           const x = P[k * 3], y = P[k * 3 + 1], z = P[k * 3 + 2];
           s.pos.push(x, y, z);
-          (steep ? rockColor(x, y, z, c) : groundColor(x, y, z, c)).multiplyScalar(jit);
-          s.col.push(c.r, c.g, c.b);
+          s.col.push(src[k * 3] * jit, src[k * 3 + 1] * jit, src[k * 3 + 2] * jit);
           if (steep) s.uv.push((side ? z : x) / 5, y / 5); else s.uv.push(x / 4, z / 4);
         }
       };
@@ -362,9 +365,11 @@ const World = (() => {
       return im;
     };
     const outside = (x, z) => Math.abs(x) > 99 || z > 95 || z < -117;
+    const PADS = ['stone1', 'stone2', 'stone3', 'altar', 'gate1', 'gate2', 'warden'].map((k) => L[k]);
+    const onPad = (x, z) => PADS.some(([px, pz]) => dist2(x, z, px, pz) < 5.4);
     const barkMat = lambert({ map: tex(TEX.bark, 1), vertexColors: true, flatShading: true });
     const leafMat = lambert({ map: tex(TEX.leaves, 1), vertexColors: true, flatShading: true });
-    const mossMat = lambert({ map: TEX.hangMoss, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, color: 0xb8c4a8 });
+    const mossMat = lambert({ map: TEX.hangMoss, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, color: 0x9ccc88 });
 
     // Jungle giants: buttressed trunks under layered canopies, tinted tree by tree.
     const trunkGeo = merge([
@@ -402,6 +407,7 @@ const World = (() => {
     ]);
     const deadMoss = merge([[1.9, 6.4, 0], [-1.7, 5.6, 0.3], [0.2, 7.6, -1.6], [0.9, 5.6, 0.8]].map(([x, y, z], k) => ({ geo: new THREE.PlaneGeometry(1.2, 3.2), m: M(x, y - 1.6, z, 0, k * 1.1, 0) })));
     const swampTrees = scatter(N(28), (x, z, y) => y < 0.4 && dist2(x, z, L.swamp[0], L.swamp[1]) < 32 && dist2(x, z, L.tree[0], L.tree[1]) > 13 && pathDist(x, z) > 3.5 && dist2(x, z, L.spawn[0], L.spawn[1]) > 7, 6, 3);
+    swampTrees.push(...scatter(N(9), (x, z, y) => dist2(x, z, L.hollow[0], L.hollow[1]) < 15 && pathDist(x, z) > 4 && y > 0.2, 5, 13));
     inst(deadTrunk, barkMat, swampTrees, { collider: 0.5 });
     inst(deadMoss, mossMat, swampTrees);
 
@@ -415,25 +421,25 @@ const World = (() => {
     }
 
     // Undergrowth.
-    const ferns = scatter(N(560), (x, z, y) => y > 0.1 && pathDist(x, z) > 2.6 && slopeAt(x, z) < 1 && !keepClear(x, z, -3.2), 0, 4);
+    const ferns = scatter(N(560), (x, z, y) => y > 0.1 && pathDist(x, z) > 2.6 && slopeAt(x, z) < 1 && !keepClear(x, z, -3.2) && !onPad(x, z), 0, 4);
     ferns.forEach((f) => { f.s *= 1.6; });
     inst(cross(2.2, 1.6), lambert({ map: TEX.fern, alphaTest: 0.5, side: THREE.DoubleSide }), ferns, { tint: (t) => new THREE.Color().setHSL(0.3 + t.k * 0.08, 0.5, 0.5).multiplyScalar(1.8) });
     const bigLeaves = scatter(N(150), (x, z, y) => y > 0.1 && slopeAt(x, z) < 1 && !keepClear(x, z, -1.6), 3, 5);
     const leafFan = merge([0, 1, 2, 3, 4].map((k) => ({ geo: new THREE.PlaneGeometry(1.4, 1.8), m: M(Math.cos(k * 1.25) * 0.7, 0.9, Math.sin(k * 1.25) * 0.7, -0.5, -k * 1.25 + Math.PI / 2, 0) })));
     inst(leafFan, lambert({ map: TEX.bigleaf, alphaTest: 0.5, side: THREE.DoubleSide }), bigLeaves);
-    const reeds = scatter(N(280), (x, z, y) => y > -0.8 && y < 0.35 && !keepClear(x, z, -3), 0, 6);
+    const reeds = scatter(N(280), (x, z, y) => y > -0.8 && y < 0.35 && !keepClear(x, z, -3) && !onPad(x, z), 0, 6);
     inst(cross(1.2, 2.2), lambert({ map: TEX.reeds, alphaTest: 0.5, side: THREE.DoubleSide }), reeds);
     const rocks = scatter(N(70), (x, z, y) => y > 0 && slopeAt(x, z) < 1.2 && !keepClear(x, z, -1), 4, 7);
     rocks.forEach((t) => { t.y -= 0.25; t.sy = t.s * 0.8; });
     rocks.push({ x: L.toad[0], y: heightAt(L.toad[0], L.toad[1]) - 0.55, z: L.toad[1], ry: 0.4, s: 2.3, sy: 1.2, sz: 1.9 }); // the Sub Toad's rock
     inst(gnarl(new THREE.DodecahedronGeometry(0.9, 0), 0.3, 11), lambert({ map: TEX.moss, flatShading: true, color: 0xb0b0c0 }), rocks, { collider: 0.8 });
     if (hi) {
-      const lilies = scatter(90, (x, z, y) => y < -0.35 && y > -2, 0, 8).map((l) => ({ ...l, y: WATER_Y + 0.08, s: 0.6 + l.s * 0.5 }));
+      const lilies = scatter(90, (x, z, y) => y < -0.35 && y > -2, 0, 8).map((l) => ({ ...l, y: WATER_Y + 0.14, s: 0.6 + l.s * 0.5 }));
       inst(merge([{ geo: new THREE.PlaneGeometry(1.2, 1.2), m: M(0, 0, 0, -Math.PI / 2) }]), lambert({ map: TEX.lily, alphaTest: 0.5, side: THREE.DoubleSide }), lilies);
     }
 
     // Glowing mushrooms: they bounce to your kicks. A ring of them grows at the Summoning Tree's feet.
-    const shroomSpots = scatter(N(90), (x, z, y) => y > 0.1 && pathDist(x, z) > 1.8 && pathDist(x, z) < 9 && slopeAt(x, z) < 1, 2.5, 9);
+    const shroomSpots = scatter(N(90), (x, z, y) => y > 0.1 && pathDist(x, z) > 1.8 && pathDist(x, z) < 9 && slopeAt(x, z) < 1 && !onPad(x, z), 2.5, 9);
     for (let k = 0; k < 12; k++) {
       const a = (k / 12) * TAU + 0.3, rad = 6.8 + (k % 3) * 0.4, x = L.tree[0] + Math.sin(a) * rad, z = L.tree[1] + Math.cos(a) * rad;
       if (heightAt(x, z) > 0.05) shroomSpots.push({ x, y: heightAt(x, z), z, ry: a, s: 0.9 + (k % 4) * 0.25 });
@@ -492,7 +498,7 @@ const World = (() => {
     }
     addStone(box(12.6, 1.6, 2.8), M(gx, gapY + 9, gz + 0.4), MONO);
     addStone(box(3, 1.4, 0.4), M(gx, gapY + 9, gz + 1.9), RGB(1.4, 0.7, 1.5)); // a panther glyph slab
-    const vineTex = tex(TEX.vine, 3, 3), vineMat = lambert({ map: vineTex, emissiveMap: tex(TEX.vineGlow, 3, 3), emissive: 0xffffff, alphaTest: 0.4, side: THREE.DoubleSide });
+    const vineTex = tex(TEX.vine, 2, 2.5), vineMat = lambert({ map: vineTex, emissiveMap: tex(TEX.vineGlow, 2, 2.5), emissive: 0xb04890, alphaTest: 0.4, side: THREE.DoubleSide });
     const vineMesh = new THREE.Group();
     vineMesh.position.set(gx, gapY + 4, gz);
     const curtain = new THREE.Group();
@@ -545,7 +551,7 @@ const World = (() => {
     const foamTex = tex(TEX.foam, 2, 2);
     const foam = new THREE.Mesh(new THREE.RingGeometry(1.2, 5.2, 18, 1), basic({ map: foamTex, alphaTest: 0.5, color: 0xd8f6ff }));
     foam.rotation.x = -Math.PI / 2;
-    foam.position.set(L.falls[0], WATER_Y + 0.1, -64.2);
+    foam.position.set(L.falls[0], WATER_Y + 0.16, -64.2);
     scene.add(foam);
     const spray = glowSprite(0xbfe8ff, 0.3, 10, 5);
     spray.position.set(L.falls[0], 1.4, -64.6);
@@ -560,7 +566,7 @@ const World = (() => {
     const gateMesh = new THREE.InstancedMesh(blockGeo, lambert({ map: TEX.cracked, color: RGB(1.5, 1.4, 1.6), emissiveMap: TEX.crackedGlow, emissive: 0xffffff, flatShading: true }), 12);
     const blocks = [];
     for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
-      const b = { p: new THREE.Vector3(cx - 3 + i * 2, cy + 1 + j * 2, cz), v: new THREE.Vector3(), rot: new THREE.Euler(0, (r() - 0.5) * 0.1, 0), w: new THREE.Vector3(), rest: false };
+      const b = { p: new THREE.Vector3(cx - 3 + i * 2, cy + 1 + j * 2, cz), v: new THREE.Vector3(), rot: new THREE.Euler(0, (r() - 0.5) * 0.1, 0), w: new THREE.Vector3(), rest: false, size: 1 };
       gateMesh.setMatrixAt(blocks.length, M(b.p.x, b.p.y, b.p.z, 0, b.rot.y, 0));
       blocks.push(b);
     }
@@ -731,9 +737,9 @@ const World = (() => {
     // The wound he is torn out of: a glowing split in the trunk, facing the spawn.
     const wy0 = 0.9, wy1 = 8.3, rows = 12, wpos = [], wcol = [], widx = [];
     for (let k = 0; k <= rows; k++) {
-      const y = lerp(wy0, wy1, k / rows), w = 0.85 * Math.sin((Math.PI * k) / rows) ** 0.8, zc = trunkR(0, y) + 0.3;
+      const y = lerp(wy0, wy1, k / rows), w = 1.1 * Math.sin((Math.PI * k) / rows) ** 0.7, zc = trunkR(0, y) + 0.35;
       wpos.push(-w, y - 4, zc - 0.25, 0, y - 4, zc + 0.05, w, y - 4, zc - 0.25);
-      wcol.push(0.45, 0.9, 0.25, 1, 1, 0.75, 0.45, 0.9, 0.25);
+      wcol.push(0.2, 0.7, 0.12, 0.8, 1, 0.45, 0.2, 0.7, 0.12);
       if (k) { const a = (k - 1) * 3, b = k * 3; widx.push(a, a + 1, b, a + 1, b + 1, b, a + 1, a + 2, b + 1, a + 2, b + 2, b + 1); }
     }
     // the knots glow faintly too
@@ -751,7 +757,7 @@ const World = (() => {
     const wound = new THREE.Mesh(wg, woundMat);
     wound.position.set(0, 4, 0);
     group.add(wound);
-    const woundGlow = glowSprite(0x9dff6a, 0.45, 7, 10);
+    const woundGlow = glowSprite(0x7dff5a, 0.5, 9, 13);
     woundGlow.position.set(0, 4.2, trunkR(0, 4.2) + 1.6);
     group.add(woundGlow);
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: TEX.glow, color: 0x6fd84a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -823,8 +829,8 @@ const World = (() => {
     const eyeGlow = glowSprite(0x7ff6ff, 0.5, 11, 7);
     eyeGlow.position.set(0, yy + 2.9, 4.6);
     group.add(eyeGlow);
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 2.4, 160, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x7ff6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
-    beam.position.y = yy + 9 + 80;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 2.4, 160, 8, 1, true).translate(0, 80, 0), new THREE.MeshBasicMaterial({ color: 0x7ff6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    beam.position.y = yy + 8;
     beam.visible = false;
     group.add(beam);
     scene.add(group);
@@ -927,9 +933,9 @@ const World = (() => {
         const song = snap.song[lane] || [], draft = snap.draft[lane] || [];
         for (let s = 0; s < LOOP; s++) {
           const on = s === head;
-          if (song[s]) tmpC.setHex(LANE_HEX[lane]).multiplyScalar(on ? 1.7 : 0.8 + pulse * 0.3);
+          if (song[s]) tmpC.setHex(LANE_HEX[lane]).multiplyScalar(on ? 1.8 : 1.05 + pulse * 0.35);
           else if (draft[s]) tmpC.setHex(LANE_HEX[lane]).lerp(WHITE, 0.35).multiplyScalar(on ? 1.2 : 0.42 * blink);
-          else tmpC.setHex(on ? 0x9a94d0 : s % 4 === 0 ? 0x3a3460 : 0x221d3c);
+          else tmpC.setHex(on ? 0xa8a2e0 : s % 4 === 0 ? 0x3e3866 : 0x26213e);
           if (flash > 0.01) tmpC.lerp(WHITE, flash * 0.8);
           st.notches.setColorAt(li * LOOP + s, tmpC);
         }
@@ -959,7 +965,7 @@ const World = (() => {
     g.breakT = TIME.value;
     for (const b of g.blocks) {
       const out = Math.sign(b.p.x - g.x) || (Math.random() - 0.5);
-      b.v.set(out * (3 + Math.random() * 5), 7 + Math.random() * 7, (Math.random() - 0.35) * 9);
+      b.v.set(out * (5 + Math.random() * 5), 7 + Math.random() * 7, (Math.random() - 0.4) * 8);
       b.w.set((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
     }
     burst(g.x, heightAt(g.x, g.z) + 3, g.z, 60, 0xa57bff, { speed: 7, up: 5, life: 1.4, size: 0.45, spread: 3 });
@@ -1047,6 +1053,7 @@ const World = (() => {
     if (vw.burnT === undefined) {
       const dmg = 1 - clamp(vw.hp / 3, 0, 1);
       vw.mat.color.setHex(0xffffff).lerp(SCORCH, dmg * 0.7);
+      vw.mat.emissive.setHex(0xb04890).lerp(EMBER, dmg * 0.5);
     } else if (vw.mesh.visible) {
       const k = clamp((t - vw.burnT) / 1.6, 0, 1);
       vw.curtain.scale.y = Math.max(0.001, 1 - k * k);
@@ -1070,11 +1077,16 @@ const World = (() => {
           if (b.p.y < floor) {
             b.p.y = floor;
             b.v.y = Math.abs(b.v.y) * 0.3; b.v.x *= 0.5; b.v.z *= 0.5; b.w.multiplyScalar(0.5);
-            if (b.v.lengthSq() < 0.8) b.rest = true;
+            if (b.v.lengthSq() < 0.8) {
+              b.rest = true;
+              b.crumble = Math.abs(b.p.x - 61) < 3.6 && b.p.z < -58 && b.p.z > -86; // never leave rubble on the path
+              if (b.crumble) burst(b.p.x, b.p.y, b.p.z, 12, 0x8a8298, { speed: 2, up: 1.5, life: 1.2, size: 0.6, spread: 1, grav: -0.5 });
+            }
           }
           moving++;
-        }
-        g.mesh.setMatrixAt(i, tmpM.compose(b.p, tmpQ.setFromEuler(b.rot), tmpS.set(1, 1, 1)));
+        } else if (b.crumble && b.size > 0) { b.size = Math.max(0, b.size - dt * 1.6); moving++; }
+        const k = b.size === undefined ? 1 : b.size;
+        g.mesh.setMatrixAt(i, tmpM.compose(b.p, tmpQ.setFromEuler(b.rot), tmpS.set(k, k, k)));
       });
       g.mesh.instanceMatrix.needsUpdate = true;
       if (!moving || t - g.breakT > 6) g.settled = true;

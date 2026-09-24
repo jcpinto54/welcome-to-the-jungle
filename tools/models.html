@@ -124,7 +124,13 @@ const props = new THREE.Group();
   }
   // an altar and a rock for the spirits
   const stone = World.ps1(new THREE.MeshLambertMaterial({ map: TEX.stone || TEX.bark, flatShading: true, color: 0x9a9ab0 }));
-  [[3.4, 0.3], [2.6, 0.9], [1.9, 1.5]].forEach(([s, y]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(s, 0.6, s), stone); b.position.set(0, y, 0); b.name = 'altar'; props.add(b); });
+  const altar = new THREE.Group(), rock = new THREE.Group();
+  altar.name = 'altar'; rock.name = 'rock';
+  [[3.4, 0.3], [2.6, 0.9], [1.9, 1.5]].forEach(([s, y]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(s, 0.6, s), stone); b.position.set(0, y, 0); altar.add(b); });
+  const rockMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), World.ps1(new THREE.MeshLambertMaterial({ map: TEX.moss, flatShading: true, color: 0xa0a0b0 })));
+  rockMesh.position.y = -0.2; rockMesh.scale.set(1.4, 0.8, 1.2);
+  rock.add(rockMesh);
+  props.add(altar, rock);
 })();
 scene.add(props);
 
@@ -145,7 +151,7 @@ function build() {
     M.warden = { obj: warden, group: warden.group, focus: [0, 1.9, 0], tris: () => Creatures.triangles(warden.group) };
     const panther = Creatures.panther(scene, 0, 1.8, 0);
     M.panther = { obj: panther, group: panther.group, focus: [0, 2.8, 0], tris: () => Creatures.triangles(panther.group) };
-    const toad = Creatures.toad(scene, 0, 0.9, 0);
+    const toad = Creatures.toad(scene, 0, 0.95, 0);
     M.toad = { obj: toad, group: toad.group, focus: [0, 1.6, 0], tris: () => Creatures.triangles(toad.group) };
   }
 }
@@ -158,9 +164,13 @@ function place() {
     const on = showing === 'all' || showing === name || (showing === 'game' && name === 'wizard');
     m.group.visible = on;
     m.group.position.x = showing === 'all' ? LINEUP[name] : 0;
-    if (name === 'moth' && m.obj.pos) m.obj.pos.x = m.group.position.x;
   }
-  for (const c of props.children) if (c.name === 'altar') c.visible = showing === 'panther';
+  for (const c of props.children) {
+    const who = c.name === 'altar' ? 'panther' : c.name === 'rock' ? 'toad' : null;
+    if (!who) continue;
+    c.visible = showing === who || showing === 'all';
+    c.position.x = showing === 'all' ? LINEUP[who] : 0;
+  }
   props.visible = qs.get('props') !== '0';
 }
 
@@ -174,10 +184,12 @@ function tick(dt) {
   for (const name of ['moth', 'warden']) {
     const m = M[name];
     if (!m) continue;
-    // park the "player" in front so they react, but pin them in place for the showcase
-    env.player.x = m.group.position.x; env.player.z = 6;
+    // a "player" in front makes them turn and react; they are pinned in place for the showcase
+    const home = showing === 'all' ? LINEUP[name] : 0, st = m.obj.state;
+    env.player.x = home; env.player.z = 5;
     m.obj.update(dt, env);
-    if (name === 'moth') m.obj.pos.set(m.group.position.x, 2, 0);
+    Object.assign(st, { x: home, z: 0, homeX: home, homeZ: 0, vx: 0, vz: 0 });
+    if (name === 'moth') st.y = 2.1;
   }
   if (M.panther) M.panther.obj.update(dt, clock, env.pulse);
   if (M.toad) M.toad.obj.update(dt, clock, env.pulse);
@@ -221,6 +233,8 @@ function reset(name) {
   // rebuild so every pose starts from the same state
   for (const m of Object.values(M)) scene.remove(m.group);
   for (const k of Object.keys(M)) delete M[k];
+  scene.children.filter((o) => o.name === 'ring').forEach((o) => scene.remove(o));
+  if (Creatures.clear) Creatures.clear();
   build();
   songPos = 0; clock = 0;
   if (name) showing = name;

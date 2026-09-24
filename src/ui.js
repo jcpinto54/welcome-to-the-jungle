@@ -80,7 +80,7 @@ const UI = (() => {
   let cells = [], cellState = new Int8Array(3 * LOOP).fill(-1), ph = -1;
   let bookCells = [], bookState = new Int8Array(3 * LOOP).fill(-1), bookPh = -1;
   let dlg = null, book = null, bootCb = null, endH = null, lastHud = null, promptText;
-  let introTimer = 0, levelTimer = 0;
+  let introTimer = 0, levelTimer = 0, keysBound = false;
 
   const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const touchy = () => (typeof Input !== 'undefined' && Input.isTouch) || !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
@@ -104,6 +104,13 @@ const UI = (() => {
     dlg = null; book = null; bootCb = null; endH = null; promptText = undefined;
     buildHud(); buildFx(); buildDialog(); buildCards(); buildBook(); buildEnd(); buildBoot(); buildRotate();
     built = true;
+    if (!keysBound) {
+      keysBound = true;
+      // Enter or Space also opens the jungle, without a focus ring sitting on the button.
+      window.addEventListener('keydown', (e) => {
+        if (E.boot && !E.boot.hidden && /^(Enter|NumpadEnter|Space)$/.test(e.code)) { e.preventDefault(); startFromBoot(); }
+      });
+    }
   }
   const ready = () => { if (!built) init(); return !!root; };
 
@@ -215,10 +222,11 @@ const UI = (() => {
     m.setAttribute('role', 'dialog');
     m.setAttribute('aria-modal', 'true');
     m.setAttribute('aria-label', 'Spellbook');
-    const p = el('div', 'jw-book-panel jw-panel', m);
+    const p = E.bookPanel = el('div', 'jw-book-panel jw-panel', m);
+    p.setAttribute('tabindex', '-1');
     p.innerHTML =
       `<header class="jw-book-head"><h2>SPELLBOOK <span class="jw-jp">魔導書</span></h2>` +
-      `<p class="jw-book-sub">Your song, two bars round. Tap a rune to carve or erase a hit.</p>` +
+      `<p class="jw-book-sub"></p>` +
       `<button type="button" class="jw-btn jw-close"><span class="jw-key">TAB</span>CLOSE</button></header>` +
       `<div class="jw-book-scroll"><div class="jw-book-grid"></div></div>` +
       `<div class="jw-book-foot"><section class="jw-legend"><h3>RUNES</h3>` +
@@ -241,6 +249,7 @@ const UI = (() => {
     E.bookRows = {};
     for (const lane of LANES) E.bookRows[lane] = grid.querySelector(`.jw-bg-row[data-l="${lane}"]`);
     grid.addEventListener('click', onBookClick);
+    E.bookSub = p.querySelector('.jw-book-sub');
     E.bookClose = p.querySelector('.jw-close');
     E.bookClose.addEventListener('click', () => {
       const h = book && book.h;
@@ -266,7 +275,8 @@ const UI = (() => {
     m.setAttribute('aria-modal', 'true');
     m.setAttribute('aria-label', 'The end');
     E.endStats = m.querySelector('.jw-end-stats');
-    E.endJam = m.querySelector('[data-ui="jam"]');
+    E.endPanel = m.querySelector('.jw-end-panel');
+    E.endPanel.setAttribute('tabindex', '-1');
     m.addEventListener('mousedown', (e) => e.stopPropagation());
     m.addEventListener('click', (e) => {
       const b = e.target.closest('[data-ui]');
@@ -556,6 +566,9 @@ const UI = (() => {
     }
   }
 
+  // Keyboard users land inside the modal; Space held down for stomps cannot press a button by accident.
+  function focusQuietly(node) { try { node.focus({ preventScroll: true }); } catch (e) { /* old browser */ } }
+
   function nudge(node) {
     if (!node) return;
     node.classList.remove('is-nudge'); void node.offsetWidth; node.classList.add('is-nudge');
@@ -583,12 +596,13 @@ const UI = (() => {
     paintBook(null, lastHud ? lastHud.step : undefined);
     paintLog(book.h.quest || (window.JW && window.JW.quest));
     paintControls(E.bookControls, touchy() ? CONTROLS_TOUCH : CONTROLS_DESK);
+    E.bookSub.textContent = `Your song, two bars round. ${touchy() ? 'Tap' : 'Click'} a rune to carve or erase a hit.`;
     paintSettings();
     E.book.hidden = false;
     root.classList.add('jw-reading');
     const inp = input();
     if (inp && inp.unlock) inp.unlock();
-    try { E.bookClose.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
+    focusQuietly(E.bookPanel);
   }
 
   function closeBook() {
@@ -636,7 +650,6 @@ const UI = (() => {
     paintControls(E.bootKeys, t ? CONTROLS_TOUCH.slice(0, 7) : CONTROLS_DESK.slice(0, 8));
     E.boot.hidden = false;
     root.classList.add('jw-booting');
-    try { E.bootGo.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
   }
 
   function startFromBoot() {
@@ -693,7 +706,7 @@ const UI = (() => {
     root.classList.add('jw-ending');
     const inp = input();
     if (inp && inp.unlock) inp.unlock();
-    try { E.endJam.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
+    focusQuietly(E.endPanel);
   }
 
   function hideEnd() {

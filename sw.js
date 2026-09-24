@@ -99,6 +99,8 @@ function fetchAndKeep(event, cache, keep) {
   return network;
 }
 
+// The network wins unless it fails, or hangs NET_TIMEOUT while a cached copy is ready.
+// Offline, any page in scope falls back to index.html (the app has only one page).
 async function networkFirst(event) {
   const req = event.request;
   const nav = req.mode === 'navigate';
