@@ -393,7 +393,7 @@ body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavi
 /* ---------- boot ---------- */
 
 .jw-boot { position: absolute; inset: 0; z-index: 40; pointer-events: auto; cursor: pointer; display: grid; place-items: center; overflow: hidden;
-  background: radial-gradient(ellipse at 50% 38%, #221650 0%, #0b0819 58%, #040308 100%); }
+  background: radial-gradient(ellipse at 50% 38%, rgba(34, 22, 80, 0.6) 0%, rgba(11, 8, 25, 0.74) 58%, rgba(4, 3, 8, 0.92) 100%); } /* the Summoning Tree drifts behind it */
 .jw-boot::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px); }
 .jw-boot::after { content: ''; position: absolute; left: -50%; right: -50%; bottom: -2%; height: 42%; pointer-events: none;

@@ -11,6 +11,8 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 html = html.replace(/<link rel="stylesheet" href="(src\/[^"]+\.css)">/g, (_, p) => `<style>\n${read(p)}\n</style>`);
 html = html.replace(/<script>window\.THREE \|\| document\.write[^\n]*<\/script>\n/, '');
+// No service worker in a framed single page.
+html = html.replace(/<script src="src\/pwa\.js"><\/script>\n?/, '');
 // The artifact publishes no welcome.mp3, so don't probe for one (a 404 is a console error).
 const inline = (p) => {
   let src = read(p);
@@ -29,9 +31,18 @@ html = html
   .replace(/<meta charset="utf-8">\s*/i, '')
   .replace(/<meta name="viewport"[^>]*>\s*/i, '');
 
+// The artifact is one page in a frame: no manifest, icons or service worker to install.
+html = html
+  .replace(/<link rel="manifest"[^>]*>\s*/i, '')
+  .replace(/<link rel="apple-touch-icon"[^>]*>\s*/i, '')
+  .replace(/<meta name="(apple-mobile-web-app-[a-z-]+|mobile-web-app-capable)"[^>]*>\s*/gi, '');
+
 const title = html.match(/<title>[^<]*<\/title>/);
 if (!title || html.indexOf(title[0]) > 8000) throw new Error('<title> must be in the first 8KB');
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 const out = path.join(ROOT, 'dist', 'jungle-wizard.html');
 fs.writeFileSync(out, html);
-console.log(`wrote ${path.relative(ROOT, out)} (${(html.length / 1024).toFixed(0)} KB)`);
+// The same page wrapped the way the artifact host wraps it, for local testing and sharing.
+const standalone = path.join(ROOT, 'dist', 'jungle-wizard.standalone.html');
+fs.writeFileSync(standalone, `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n</head>\n<body>\n${html}\n</body>\n</html>\n`);
+console.log(`wrote ${path.relative(ROOT, out)} (${(html.length / 1024).toFixed(0)} KB) and ${path.relative(ROOT, standalone)}`);

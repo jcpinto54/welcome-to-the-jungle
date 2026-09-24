@@ -8,16 +8,18 @@ const { openGame, shot } = require('./harness.cjs');
 const until = async (page, fn, arg, timeout = 20000) => page.waitForFunction(fn, arg, { timeout, polling: 100 });
 const state = (page) => page.evaluate(() => JW.state);
 
+// WebGL clears the canvas once a frame is shown (render.js does not preserve the drawing buffer),
+// so the canvas is sampled inside the next animation frame, right after the game has drawn it.
 async function pixelVariance(page) {
-  return page.evaluate(() => {
+  return page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
     const src = document.getElementById('screen');
     const c = document.createElement('canvas'); c.width = 64; c.height = 36;
     const x = c.getContext('2d'); x.drawImage(src, 0, 0, 64, 36);
     const d = x.getImageData(0, 0, 64, 36).data;
     let sum = 0, sq = 0, n = 0;
     for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; sum += l; sq += l * l; n++; }
-    return sq / n - (sum / n) ** 2;
-  });
+    resolve(sq / n - (sum / n) ** 2);
+  })));
 }
 
 // Moves to a spot next to (x, z) so interact() can reach whatever is there.

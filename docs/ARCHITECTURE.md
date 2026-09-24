@@ -32,6 +32,7 @@ Aesthetic source: the "jungle wizard" YouTube channel (@junglewizards): ambient 
 three.min.js
 src/core.js        pure  constants and helpers (BPM, STEP, BEAT, LOOP, LANES, LANE_COLOR, LANE_HEX, LANE_NAME,
                          clamp, lerp, mod, smoothstep, dist2, rng, hash2, vnoise, fbm, makeCanvas)
+src/rules.js       pure  Rules: spell stats, pocket bonus, XP and levels, colour per stone, hush, auto-aim, camera
 src/sequencer.js   pure  Sequencer: song, draft, quantize, judge, carve
 src/sound.js             Sound: Web Audio engine (uses Sequencer)
 src/terrain.js     pure  Terrain: landmarks, heightAt, canStep, colliders
@@ -48,6 +49,26 @@ src/pwa.js               PWA: registers sw.js (skips iframes, file:// and localh
 ```
 
 ## Interfaces
+
+### Rules (pure, `src/rules.js`)
+
+The game's numbers and rules; game.js only glues them to the world. Angles follow the wizard:
+heading 0 faces +z, heading = atan2(dx, dz).
+
+```
+Rules.spell(name, onBeat) -> {lane, cd, damage, radius|speed,range|length,width|distance,time, onBeat}   a copy
+Rules.SPELLS, Rules.POCKET       base stats; in-the-pocket multipliers (stomp 2x damage, 1.35x radius, ...)
+Rules.beatPress(pos, nowMs, latencyMs) -> ms   press time the judge hears exactly on the nearest beat
+Rules.XP, Rules.xpToNext(lv), Rules.level(xp) -> {level, xp01, into, need}, Rules.maxVibe(lv)
+Rules.DAMAGE {bite, ring}, Rules.IFRAMES, Rules.REGEN, Rules.REACH, Rules.PICKUP, Rules.WADE
+Rules.saturation(carvedStones, done) -> 0.14 .. 1 (1.1 after the finale)
+Rules.hush([{kind, d, alive}]) -> 0..1
+Rules.autoAim(x, z, facing, [{x, z, alive}], {range, cone}) -> nearest in the cone, or null (straight ahead)
+Rules.bearing(yaw, fx, fz, tx, tz) -> radians, positive to the right;  Rules.wrapAngle(a)
+Rules.segDist(...), Rules.segHitsBox(ax, az, bx, bz, box, pad)
+Rules.CAMERA, Rules.clampPitch(p), Rules.cameraDistance(heightAt, target, dirBack, want) -> distance
+Rules.zoneAt(x, z, L) -> {id, name}   for the zone banners
+```
 
 ### Sequencer (pure, `src/sequencer.js`)
 
@@ -215,3 +236,14 @@ JW.seq, JW.quest, JW.world, JW.L (landmarks)
 - **Quest:** `q.log()`. `pyramidReady` also accepts a per-lane function or counts, and returns `lanes`, `stones` and `text`. Dialogue lives in `Quest.LINES.{tree, panther, toad, pyramid}` and names in `Quest.SPEAKERS`.
 - **Input:** `lock()`, `unlock()`, `locked`, `setSettings()`, `RAD_PER_PX` (0.0024). It emits `pause` on Esc, P or a real pointer-lock loss. In `menu` mode a click or tap emits `advance`, which resumes from pause.
 - **UI:** `toast(text, 'zone')` shows a zone banner. `prompt('[E] ...')` draws a keycap. `objective.angle` is in radians, positive means to the right. `openBook` reads `handlers.quest` (falling back to `JW.quest`). Snare and bass cells ignore clicks while those spells are locked.
+- **Game:** `Game` is the global (`{state, booted, JW}`); `window.JW` is exactly the hook above. The
+  simulation runs in steps of at most 1/20 s and keeps real time through frames of up to a second;
+  when the move input changed between two far-apart frames, the old vector counts until the input
+  event's `timeStamp`. The wizard waits underground (not hidden) before the intro so his orb light
+  counts from the first frame, and every material is compiled during the boot screen. A carve
+  floods colour on the next bar's crash; the state becomes `book` then and the spellbook opens
+  1.5 s later (JW.closeBook() cancels it). Each drum cast also flashes a little colour back.
+  Replay reloads the page; the intro is skippable once it has been seen (localStorage `jw.intro`).
+- **UI:** the boot screen's backdrop is translucent, so the Summoning Tree drifts behind it.
+- **Tests:** `tests/e2e/game.test.cjs` samples the canvas inside `requestAnimationFrame`, because
+  WebGL clears a canvas that does not preserve its drawing buffer once the frame is shown.

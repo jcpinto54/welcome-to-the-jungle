@@ -5,7 +5,7 @@
    and Google Fonts are stale-while-revalidate. Bump VERSION when PRECACHE changes. */
 
 const APP = 'jungle-wizard';
-const VERSION = 1;
+const VERSION = 2;
 // GitHub Pages sites share one origin, so the cache name carries the install path too.
 const SCOPE = new URL(self.registration.scope).pathname;
 const CACHE = `${APP}-v${VERSION}:${SCOPE}`;
@@ -17,6 +17,7 @@ const PRECACHE = [
   'manifest.webmanifest',
   'src/style.css',
   'src/core.js',
+  'src/rules.js',
   'src/sequencer.js',
   'src/sound.js',
   'src/terrain.js',
