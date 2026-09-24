@@ -60,8 +60,8 @@ const Wizard = (() => {
 
   /* ---------- texture atlas: one opaque/cut-out material for the whole body ---------- */
 
-  const AW = 96, AH = 64;
-  const REG = { bark: [0, 0, 32, 32], moss: [32, 0, 32, 32], strand: [0, 32, 16, 32], leaf: [16, 32, 16, 16], plain: [16, 48, 8, 8], root: [32, 32, 32, 32], hat: [64, 0, 32, 32] };
+  const AW = 64, AH = 64;
+  const REG = { bark: [0, 0, 32, 32], moss: [32, 0, 32, 32], strand: [0, 32, 16, 32], leaf: [16, 32, 16, 16], plain: [16, 48, 8, 8], root: [32, 32, 32, 32] };
   let atlasTex = null;
   function atlas() {
     if (atlasTex) return atlasTex;
@@ -83,12 +83,6 @@ const Wizard = (() => {
       P('#7fcf5a', 24, 32 + Y);
     }
     P('#ffffff', 16, 48, 8, 8);
-    // the hat: weathered grey bark, cracked, with lichen, so it reads pale against the dark jungle
-    put(TEX.bark, 64, 0, 32, 32, '#3a2a1c');
-    x.globalAlpha = 0.4; P('#b3aa98', 64, 0, 32, 32); x.globalAlpha = 1;
-    for (let k = 0; k < 9; k++) { let X = 64 + ((r() * 32) | 0); for (let Y = 0; Y < 32; Y++) { P('#2e261f', X, Y); if (r() < 0.3) X = 64 + mod(X - 64 + (r() < 0.5 ? -1 : 1), 32); } }
-    for (let i = 0; i < 7; i++) { const X = 64 + ((r() * 29) | 0), Y = (r() * 29) | 0; P('#4f6b2a', X, Y, 2 + ((r() * 3) | 0), 1 + ((r() * 2) | 0)); P('#6b8a3a', X, Y); }
-    for (let i = 0; i < 30; i++) P(['#8f9d7a', '#c9c6b0', '#6b7a52'][(r() * 3) | 0], 64 + ((r() * 32) | 0), (r() * 32) | 0, 1 + ((r() * 2) | 0), 1);
     atlasTex = new THREE.CanvasTexture(c);
     atlasTex.magFilter = atlasTex.minFilter = THREE.NearestFilter;
     atlasTex.generateMipmaps = false;
@@ -258,7 +252,7 @@ const Wizard = (() => {
   function create() {
     const R = Rig(), { bone, add } = R;
     const C = {
-      bark: [1.25, 1.1, 0.92], barkDk: [0.9, 0.8, 0.68], pale: [1.55, 1.42, 1.2], hat: [0.82, 0.76, 0.68],
+      bark: [1.25, 1.1, 0.92], barkDk: [0.9, 0.8, 0.68], pale: [1.55, 1.42, 1.2], hat: [0.95, 0.78, 0.62], brim: [1.08, 0.9, 0.72], vine: [0.4, 0.8, 0.26], vineDk: [0.22, 0.48, 0.16],
       moss: [0.8, 0.92, 0.5], mossDk: [0.55, 0.64, 0.36], beard: [0.42, 0.46, 0.38], strand: [0.88, 0.95, 0.76], leaf: [0.8, 1.0, 0.6],
       hollow: [0.02, 0.035, 0.012], eye: [0.75, 1.0, 0.3], cap: [1.0, 0.5, 0.12], capTop: [1.0, 0.72, 0.25], stem: [0.95, 0.88, 0.75], crack: [0.45, 0.8, 0.22],
     };
@@ -275,9 +269,11 @@ const Wizard = (() => {
     const jaw = bone('jaw', head, 0, 0.03, 0.09);
     const beard = bone('beard', jaw, 0, -0.03, 0.02);
     const hat = bone('hat', head, 0, 0.37, -0.03);
-    const hat2 = bone('hat2', hat, 0, 0.4, 0);
-    const hat3 = bone('hat3', hat2, 0, 0.38, 0);
+    const hat2 = bone('hat2', hat, 0, 0.36, 0);
+    const hat3 = bone('hat3', hat2, 0, 0.33, 0);
+    const hat4 = bone('hat4', hat3, 0, 0.31, 0);
     const skirt = bone('skirt', hips, 0, 0.0, -0.02);
+    const cloak = bone('cloak', chest, 0, 0.36, -0.1);
     const arm = (s) => {
       const sh = bone('shoulder' + s, chest, 0.25 * s, 0.37, -0.02);
       const el = bone('elbow' + s, sh, 0, -0.52, 0);
@@ -299,14 +295,22 @@ const Wizard = (() => {
     /* torso */
     add(hips, G(new THREE.CylinderGeometry(0.17, 0.14, 0.26, 6, 1), 0.035), M(0, 0.0, 0, 0, 0.3, 0, [1, 1, 0.82]), C.bark);
     add(spine, twist(G(limb(0.12, 0.14, 0.46, 6, 2, true), 0.03), 1.2), M(0, 0, 0, 0, 0, 0, [1, 1, 0.85]), C.bark);
-    add(spine, G(new THREE.CylinderGeometry(0.27, 0.25, 0.62, 8, 2, true, 1.6, Math.PI * 2 - 3.2), 0.05), M(0, 0.17, -0.03), C.mossDk, 'moss');
     add(chest, G(limb(0.15, 0.27, 0.46, 7, 2, true), 0.04), M(0, 0, 0, 0, 0.2, 0, [1, 1, 0.72]), C.bark);
-    // hunched moss mantle over shoulders and back
-    add(chest, G(blob(0.3, 1), 0.09), M(0, 0.36, -0.16, 0.3, 0, 0, [1.35, 0.78, 1.05]), C.moss, 'moss');
-    add(chest, G(blob(0.16, 1), 0.09), M(0.25, 0.42, -0.02, 0, 0, 0.3, [1.2, 0.55, 1.2]), C.mossDk, 'moss');
-    add(chest, G(blob(0.16, 1), 0.09), M(-0.25, 0.42, -0.02, 0, 0, -0.3, [1.2, 0.55, 1.2]), C.mossDk, 'moss');
-    for (const sd of [1, -1]) add(chest, strand(0.14, 0.38), M(0.3 * sd, 0.4, 0.1, 0.35, 0.5 * sd, 0), C.strand, 'strand');
-    add(chest, G(new THREE.CylinderGeometry(0.34, 0.28, 0.46, 8, 1, true, 1.7, Math.PI * 2 - 3.4), 0.05), M(0, 0.18, -0.05), C.moss, 'moss');
+    // a broad, lumpy moss mantle: the shoulders of his silhouette
+    add(chest, G(blob(1, 1), 0.08), M(0, 0.4, -0.08, 0.15, 0, 0, [0.62, 0.28, 0.44]), C.moss, 'moss');
+    for (const sd of [1, -1]) {
+      add(chest, G(blob(0.17, 0), 0.06), M(0.46 * sd, 0.36, 0.0, 0, 0, 0.5 * sd, [1.1, 0.75, 1.2]), C.mossDk, 'moss');
+      add(chest, strand(0.16, 0.42), M(0.34 * sd, 0.4, 0.14, 0.35, 0.5 * sd, 0), C.strand, 'strand');
+    }
+    // the cloak hangs from the mantle to mid-thigh: open at the front, ragged at the hem
+    const ck = G(new THREE.CylinderGeometry(0.46, 0.64, 1.0, 11, 2, true, 1.0, Math.PI * 2 - 2.0), 0.05).translate(0, -0.5, 0);
+    const ckp = ck.attributes.position, ckr = rng(14);
+    for (let i = 0; i < ckp.count; i++) if (ckp.getY(i) < -0.95) ckp.setY(i, ckp.getY(i) + (ckr() - 0.4) * 0.26);
+    add(cloak, ck, null, C.moss, 'moss');
+    for (let i = 0; i < 8; i++) {
+      const a = 1.2 + i * 0.55;
+      add(cloak, strand(0.2, 0.36 + (i % 3) * 0.14), M(Math.sin(a) * 0.63, -0.9, Math.cos(a) * 0.63, 0, a, 0), C.strand, 'strand');
+    }
     // broken branches growing out of his back
     const twig = (b, x, y, z, rx, rz, len, r0, color = C.pale) => {
       add(b, G(limb(r0, 0.004, len, 4, 1, true), 0.015), M(x, y, z, rx, 0, rz), color);
@@ -337,10 +341,6 @@ const Wizard = (() => {
     for (let i = 0; i < 5; i++) {
       const a = 1.45 + i * 0.85;
       add(skirt, strand(0.15, 0.5 + (i % 2) * 0.25), M(Math.sin(a) * 0.3, -0.16, Math.cos(a) * 0.3, 0, a, 0), C.strand, 'strand');
-    }
-    for (let i = 0; i < 6; i++) {
-      const a = 1.6 + i * 0.62;
-      add(chest, strand(0.18, 0.5 + (i % 3) * 0.12), M(Math.sin(a) * 0.36, 0.34, Math.cos(a) * 0.3 - 0.08, 0, a, 0), C.strand, 'strand');
     }
     const fungus = (b, x, y, z, ry, sc) => add(b, new THREE.CircleGeometry(0.1 * sc, 5, 0, Math.PI).rotateX(-Math.PI / 2 + 0.25), M(x, y, z, 0, ry, 0), [1.7, 1.35, 0.95], 'plain');
     fungus(spine, 0.12, 0.12, -0.22, Math.PI + 0.5, 1.2);
@@ -376,26 +376,34 @@ const Wizard = (() => {
     add(jaw, G(new THREE.BoxGeometry(0.2, 0.06, 0.08), 0.02), M(0, -0.02, 0), C.barkDk);
 
     /* Spanish-moss beard */
-    add(beard, G(new THREE.CylinderGeometry(0.11, 0.03, 0.64, 6, 3, true), 0.04).translate(0, -0.32, 0), M(0, 0, 0, 0, 0, 0, [1, 1, 0.55]), C.beard, 'plain');
-    [[-1.0, 0.8], [-0.55, 1.0], [0, 1.12], [0.5, 0.95], [0.95, 0.8], [-1.5, 0.6], [1.5, 0.6], [0.25, 1.05]].forEach(([a, h], i) => {
-      add(beard, strand(0.15, h), M(Math.sin(a) * 0.07, 0.02, Math.cos(a) * 0.05 + 0.01, 0.04, a * 0.6 + (i % 3 - 1) * 0.5, (i % 2 ? 0.07 : -0.07)), C.strand, 'strand');
+    add(beard, G(new THREE.CylinderGeometry(0.16, 0.05, 0.72, 7, 3, true), 0.05).translate(0, -0.36, 0), M(0, 0, 0, 0, 0, 0, [1, 1, 0.6]), C.beard, 'plain');
+    [[-1.2, 0.75], [-0.85, 0.95], [-0.45, 1.05], [0, 1.15], [0.45, 1.0], [0.85, 0.95], [1.2, 0.75], [-1.6, 0.6], [1.6, 0.6], [0.2, 1.1], [-0.2, 1.1]].forEach(([a, h], i) => {
+      add(beard, strand(0.19, h), M(Math.sin(a) * 0.1, 0.02, Math.cos(a) * 0.07 + 0.01, 0.04, a * 0.6 + (i % 3 - 1) * 0.5, (i % 2 ? 0.07 : -0.07)), C.strand, 'strand');
     });
 
-    /* crooked bark hat */
-    const brim = new THREE.CylinderGeometry(0.57, 0.6, 0.04, 9, 1);
+    /* tall crooked bark hat: a narrow brim, then a cone in four segments whose tip curls back and aside */
+    const brim = new THREE.CylinderGeometry(0.53, 0.56, 0.05, 10, 1);
     const bp = brim.attributes.position, br = rng(9);
     for (let i = 0; i < bp.count; i++) {
       const x = bp.getX(i), z = bp.getZ(i);
-      if (Math.hypot(x, z) > 0.45) bp.setY(i, bp.getY(i) + Math.sin(Math.atan2(x, z) * 3 + 1) * 0.08 - (z < 0 ? 0.08 : 0) + (br() - 0.5) * 0.04);
+      // a floppy rim: it droops at the sides, so from behind the brim still reads as a disc
+      if (Math.hypot(x, z) > 0.4) bp.setY(i, bp.getY(i) + Math.sin(Math.atan2(x, z) * 3 + 1) * 0.04 - Math.abs(x) * 0.12 + (br() - 0.5) * 0.03);
     }
-    add(hat, G(brim, 0.03), null, C.hat, 'hat');
-    add(hat, G(new THREE.CylinderGeometry(0.21, 0.29, 0.42, 7, 1, true), 0.025), M(0, 0.21, 0), C.hat, 'hat');
-    add(hat, G(new THREE.CylinderGeometry(0.3, 0.31, 0.11, 8, 1, true), 0.03), M(0, 0.06, 0), C.moss, 'moss');
-    add(hat, G(blob(0.11), 0.03), M(0.27, 0.06, -0.08, 0, 0, 0, [1, 0.6, 1]), C.moss, 'moss');
-    for (const [a, h] of [[2.4, 0.3], [3.3, 0.36], [4.2, 0.26], [1.3, 0.22]]) add(hat, strand(0.13, h), M(Math.sin(a) * 0.53, 0.0, Math.cos(a) * 0.53, 0, a, 0), C.strand, 'strand');
-    for (const [a, y, rx, rz] of [[0.9, 0.07, 0.3, -1.1], [1.6, 0.05, -0.2, -1.3], [5.2, 0.08, 0.2, 1.2]]) {
-      add(hat, new THREE.PlaneGeometry(0.16, 0.09).translate(0.08, 0, 0), M(Math.sin(a) * 0.3, y, Math.cos(a) * 0.3, rx, a - Math.PI / 2, rz * 0.2), C.leaf, 'leaf');
+    add(hat, G(brim, 0.025), null, C.brim);
+    // each segment starts a little below its joint so the bends never open a gap
+    [[hat, 0.27, 0.2, 0.36], [hat2, 0.2, 0.14, 0.33], [hat3, 0.14, 0.08, 0.31], [hat4, 0.08, 0.004, 0.34]].forEach(([b, r0, r1, len]) => {
+      add(b, G(new THREE.CylinderGeometry(r1, r0 * 1.05, len + 0.05, 7, 1, true).translate(0, len / 2 - 0.025, 0), 0.012), null, C.hat);
+    });
+    // a twisted vine band with leaves, moss clinging to the bark
+    add(hat, G(new THREE.CylinderGeometry(0.275, 0.285, 0.05, 9, 1, true), 0.012), M(0, 0.06, 0, 0.09, 0, 0.05), C.vine, 'plain');
+    add(hat, G(new THREE.CylinderGeometry(0.265, 0.28, 0.04, 9, 1, true), 0.012), M(0, 0.1, 0, -0.1, 0, -0.06), C.vineDk, 'plain');
+    for (const [a, y, rz] of [[0.6, 0.08, -0.3], [1.9, 0.07, 0.25], [4.4, 0.09, -0.2]]) {
+      add(hat, new THREE.PlaneGeometry(0.15, 0.08).translate(0.075, 0, 0), M(Math.sin(a) * 0.28, y, Math.cos(a) * 0.28, 0.2, a - Math.PI / 2, rz), C.leaf, 'leaf');
     }
+    add(hat, G(blob(0.1), 0.03), M(-0.22, 0.2, -0.13, 0, 0, 0, [1, 0.8, 0.9]), C.moss, 'moss');
+    add(hat3, G(blob(0.07), 0.02), M(0.05, 0.1, -0.06, 0, 0, 0, [1, 0.8, 1]), C.moss, 'moss');
+    for (const [a, h] of [[2.5, 0.3], [3.4, 0.36], [4.3, 0.26]]) add(hat, strand(0.13, h), M(Math.sin(a) * 0.5, -0.02, Math.cos(a) * 0.5, 0, a, 0), C.strand, 'strand');
+    add(hat3, strand(0.09, 0.28), M(0.04, 0.12, -0.08, 0, 2.6, 0), C.strand, 'strand');
     const shrooms = [];
     const shroom = (b, x, y, z, s, tilt) => {
       const m = M(x, y, z, tilt[0], 0, tilt[1]);
@@ -404,15 +412,12 @@ const Wizard = (() => {
       add(b, new THREE.CircleGeometry(0.02 * s, 5), m.clone().multiply(M(0, 0.079 * s, 0, -Math.PI / 2)), C.capTop, 'plain', 1);
       shrooms.push({ b, off: new THREE.Vector3(0, 0.07 * s, 0).applyMatrix4(m) });
     };
-    shroom(hat, 0.33, 0.08, 0.05, 1.3, [0.2, -0.6]);
-    shroom(hat, 0.29, 0.1, -0.17, 1.0, [-0.4, -0.5]);
-    shroom(hat, -0.22, 0.06, -0.25, 1.1, [-0.6, 0.4]);
-    shroom(hat, 0.5, -0.01, 0.22, 0.9, [0.3, -0.3]);
-    add(hat2, G(new THREE.CylinderGeometry(0.12, 0.21, 0.4, 6, 1, true), 0.02), M(0, 0.19, 0), C.hat, 'hat');
-    add(hat2, G(blob(0.08), 0.03), M(-0.13, 0.12, -0.08, 0, 0, 0, [1, 0.7, 1]), C.moss, 'moss');
-    add(hat2, strand(0.1, 0.3), M(-0.12, 0.12, -0.1, 0, -2.3, 0), C.strand, 'strand');
-    shroom(hat2, 0.15, 0.14, 0.05, 0.8, [0.1, -0.9]);
-    add(hat3, bend(G(new THREE.CylinderGeometry(0.004, 0.125, 0.48, 6, 3, true), 0.012).translate(0, 0.24, 0), 0.48, 0.09, -0.14), null, C.hat, 'hat');
+    // glowing mushrooms on the brim, and one growing out of the cone
+    shroom(hat, 0.45, -0.03, 0.1, 1.3, [0.3, -0.5]);
+    shroom(hat, 0.37, -0.01, -0.27, 1.0, [-0.3, -0.4]);
+    shroom(hat, -0.44, -0.03, 0.14, 1.15, [0.3, 0.5]);
+    shroom(hat, -0.18, 0.01, -0.44, 0.9, [-0.5, 0.2]);
+    shroom(hat2, 0.17, 0.12, 0.06, 0.85, [0.1, -1.0]);
 
     /* branch arms with twig fingers */
     for (const A of [AL, AR]) {
@@ -538,7 +543,7 @@ const Wizard = (() => {
     const st = {
       t: 0, walk: 0, act: null, actT: 0, fade: null, fadeT: 0, dead: false,
       emerge: 1, emergeAuto: false, flash: 0, flashCol: new THREE.Color(0xffffff),
-      sHat: spring(90, 8), sHatZ: spring(80, 7), sBeard: spring(60, 6), sBeardZ: spring(55, 6), sSkirt: spring(50, 6),
+      sHat: spring(90, 8), sHatZ: spring(80, 7), sBeard: spring(60, 6), sBeardZ: spring(55, 6), sSkirt: spring(50, 6), sCloak: spring(45, 6),
     };
     const p = {}, last = {};
     const tq = new THREE.Quaternion(), hq = new THREE.Quaternion(), gq = new THREE.Quaternion(), tv = new THREE.Vector3(), ts = new THREE.Vector3();
@@ -634,15 +639,17 @@ const Wizard = (() => {
       // secondary motion: the hat and beard lag behind the head, the skirt trails. Springs are
       // integrated in small slices so a long frame cannot blow them up.
       const n = Math.max(1, Math.ceil(dt * 120)), h = dt / n;
-      let lag = 0, lagZ = 0, bl = 0, blz = 0, sl = 0;
+      let lag = 0, lagZ = 0, bl = 0, blz = 0, sl = 0, cl = 0;
       for (let i = 0; i < n; i++) {
         lag = stepSpring(st.sHat, hp - p.by * 2, h); lagZ = stepSpring(st.sHatZ, hr, h);
         bl = stepSpring(st.sBeard, hp + p.jaw, h); blz = stepSpring(st.sBeardZ, hr, h);
-        sl = stepSpring(st.sSkirt, p.hx - p.by, h);
+        sl = stepSpring(st.sSkirt, p.hx - p.by, h); cl = stepSpring(st.sCloak, torso - p.by, h);
       }
-      hat.rotation.set(-0.2 + lag * 0.9, 0, 0.1 + lagZ * 0.8);
-      hat2.rotation.set(-0.26 + lag * 0.7, 0, 0.3 + lagZ * 0.6);
-      hat3.rotation.set(-0.45 + lag * 1.1, 0, 0.62 + lagZ);
+      hat.rotation.set(-0.14 + lag * 0.6, 0, -0.04 + lagZ * 0.5);
+      hat2.rotation.set(-0.12 + lag * 0.6, 0, -0.1 + lagZ * 0.5);
+      hat3.rotation.set(-0.34 + lag * 0.9, 0, -0.32 + lagZ * 0.8);
+      hat4.rotation.set(-0.6 + lag * 1.2, 0, -0.55 + lagZ);
+      cloak.rotation.set(-torso * 0.55 + cl * 0.8 + p.flare * 0.4, 0, -p.cz * 0.6 - p.hz * 0.4);
       beard.rotation.set(-(hp + p.jaw) + bl * 0.9 + p.flare * 0.25, 0, -hr + blz * 0.9);
       skirt.rotation.set(-p.hx * 0.6 + sl * 0.8 + p.flare * 0.35, 0, -p.hz * 0.5);
       legIK(LL, FOOT.l[0] + p.lfx, FOOT.l[1] + p.lfy, FOOT.l[2] + p.lfz, p.lfp);

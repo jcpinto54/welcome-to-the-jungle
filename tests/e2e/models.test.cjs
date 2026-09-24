@@ -14,6 +14,7 @@ const VIEWS = [
   ['wizard-34', { yaw: 0.7, dist: 5.5 }],
   ['wizard-side', { yaw: Math.PI / 2, dist: 5.5 }],
   ['wizard-back', { yaw: Math.PI, dist: 5.5 }],
+  ['wizard-game', { secs: 1.2, yaw: Math.PI, pitch: 0.36, dist: 7, target: [0, 1.8, 0] }], // gameplay camera: behind, above, 7 units
   ['wizard-face', { yaw: 0, pitch: -0.12, dist: 1.7, target: [0, 2.1, 0.7] }],
   ['wizard-walk', { walk: true, secs: 2.3, yaw: 1.3, dist: 6 }],
   ['wizard-quake', { act: 'quake', actAt: 0.5, secs: 0.67, yaw: 1.1, dist: 7, target: [0, 2.2, 0] }],
