@@ -185,7 +185,7 @@ const World = (() => {
   const C = (hex) => new THREE.Color(hex);
   const RGB = (r, g, b) => new THREE.Color(r, g, b);
   const RUIN = RGB(1.32, 1.2, 1.02), RUIN2 = RGB(1.2, 1.12, 1.0), MOSSY = RGB(0.8, 1.12, 0.6), MONO = RGB(1.5, 1.42, 1.3);
-  const PYR = RGB(1.62, 1.34, 1.12), PYR2 = RGB(1.5, 1.24, 1.08), PAD = RGB(0.8, 0.76, 0.74);
+  const PYR = RGB(1.62, 1.34, 1.12), PYR2 = RGB(1.5, 1.24, 1.08), PAD = RGB(0.8, 0.76, 0.74), RUNE_IDLE = 0x2a5a86;
   const TEAL = C(0x1f4a44), OLIVE = C(0x4a5222), DIRT = C(0x9a7048), DIRT2 = C(0x6e5236), MUD = C(0x363826), ASH = C(0x524a60);
   const PLAT = C(0x2c5048), GRIDC = C(0x1c1636), PAVE = C(0x4e5244), ROCK = C(0x5a5870), ROCK2 = C(0x474660), MOSS = C(0x4a6a34);
   function groundColor(x, y, z, out) {
@@ -632,15 +632,19 @@ const World = (() => {
       }
     }
 
-    // Collectible fireflies, in clusters along the paths (the game marks them taken).
-    const fireflies = [], fr = rng(5);
+    // Collectible fireflies, in clusters along the paths (the game marks them taken). Each one is pushed
+    // out of every collider and kept over walkable ground by the path, so all of them can be reached.
+    const fireflies = [], fr = rng(5), fp = { x: 0, z: 0 };
     for (const path of PATHS) for (let i = 0; i < path.length - 1; i++) {
-      const [ax, az] = path[i], [bx, bz] = path[i + 1];
+      const [ax, az] = path[i], [bx, bz] = path[i + 1], len = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / len, nz = (bx - ax) / len;
       for (let t = 0.2; t < 1; t += 0.45) {
-        const x = lerp(ax, bx, t) + (fr() - 0.5) * 6, z = lerp(az, bz, t) + (fr() - 0.5) * 6;
+        const side = (fr() - 0.5) * 4, cx = lerp(ax, bx, t) + nx * side, cz = lerp(az, bz, t) + nz * side;
+        if (dist2(cx, cz, L.pyramid[0], L.pyramid[1]) < 22) continue; // the path ends inside the pyramid
         for (let k = 0; k < 3; k++) {
-          const fx = x + (fr() - 0.5) * 3, fz = z + (fr() - 0.5) * 3;
-          fireflies.push({ x: fx, y: Math.max(heightAt(fx, fz), WATER_Y + 0.2) + 1.2 + fr() * 1.4, z: fz, taken: false, phase: fr() * 6 });
+          fp.x = cx + (fr() - 0.5) * 2.4; fp.z = cz + (fr() - 0.5) * 2.4;
+          for (let n = 0; n < 3; n++) colliders.collide(fp, 0.7);
+          if (slopeAt(fp.x, fp.z) > 0.9 || pathDist(fp.x, fp.z) > 4) { fp.x = lerp(ax, bx, t); fp.z = lerp(az, bz, t); }
+          fireflies.push({ x: fp.x, y: Math.max(heightAt(fp.x, fp.z), WATER_Y) + 1.1 + fr() * 1.2, z: fp.z, taken: false, phase: fr() * 6 });
         }
       }
     }
@@ -735,16 +739,17 @@ const World = (() => {
     group.add(new THREE.Mesh(merge(moss), mossMat));
 
     // The wound he is torn out of: a glowing split in the trunk, facing the spawn.
-    const wy0 = 0.9, wy1 = 8.3, rows = 12, wpos = [], wcol = [], widx = [];
+    // built around its own centre on the bark, so wound.getWorldPosition() is where he steps out from
+    const wy0 = 0.9, wy1 = 8.3, rows = 12, wpos = [], wcol = [], widx = [], wz = trunkR(0, 4) + 0.3;
     for (let k = 0; k <= rows; k++) {
-      const y = lerp(wy0, wy1, k / rows), w = 1.1 * Math.sin((Math.PI * k) / rows) ** 0.7, zc = trunkR(0, y) + 0.35;
+      const y = lerp(wy0, wy1, k / rows), w = 1.1 * Math.sin((Math.PI * k) / rows) ** 0.7, zc = trunkR(0, y) + 0.35 - wz;
       wpos.push(-w, y - 4, zc - 0.25, 0, y - 4, zc + 0.05, w, y - 4, zc - 0.25);
       wcol.push(0.2, 0.7, 0.12, 0.8, 1, 0.45, 0.2, 0.7, 0.12);
       if (k) { const a = (k - 1) * 3, b = k * 3; widx.push(a, a + 1, b, a + 1, b + 1, b, a + 1, a + 2, b + 1, a + 2, b + 2, b + 1); }
     }
     // the knots glow faintly too
     for (const side of [-1, 1]) {
-      const b = wpos.length / 3, y = 12.6 - 4, zc = trunkR(side * 0.3, 12.6) - 0.05;
+      const b = wpos.length / 3, y = 12.6 - 4, zc = trunkR(side * 0.3, 12.6) - 0.05 - wz;
       wpos.push(side * 1.3 - 0.45, y, zc, side * 1.3 + 0.45, y, zc, side * 1.3, y + 0.16, zc + 0.05);
       wcol.push(0.25, 0.6, 0.15, 0.25, 0.6, 0.15, 0.5, 0.9, 0.3);
       widx.push(b, b + 1, b + 2);
@@ -755,7 +760,7 @@ const World = (() => {
     wg.setIndex(widx);
     const woundMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
     const wound = new THREE.Mesh(wg, woundMat);
-    wound.position.set(0, 4, 0);
+    wound.position.set(0, 4, wz);
     group.add(wound);
     const woundGlow = glowSprite(0x7dff5a, 0.5, 9, 13);
     woundGlow.position.set(0, 4.2, trunkR(0, 4.2) + 1.6);
@@ -805,7 +810,7 @@ const World = (() => {
     }
     addStone(box(7.4, 5.4, 7.4, 3), at(0, yy + 2.7, 0), PYR);
     addStone(new THREE.ConeGeometry(5.8, 4.4, 4), at(0, yy + 7.6, 0, Math.PI / 4), PYR2);
-    // the portal at the foot of the stairs, with its dark doorway
+    // the portal at its foot, with a dark doorway behind the door slab
     addStone(box(8.4, 7.6, 2.6), at(0, 3.8, 15.1), PYR2);
     addStone(box(4.8, 6, 0.2), at(0, 3, 16.42), 0x050308);
 
@@ -891,8 +896,7 @@ const World = (() => {
 
   /* ---------- visual actions ---------- */
 
-  const RUNE_IDLE = 0x2a5a86;
-  const WHITE = C(0xffffff), SCORCH = C(0xa04a2a), CHAR = C(0x1a0c08), EMBER = C(0xff6a00), DARK_RUNE = C(0x2a2d45);
+  const WHITE = C(0xffffff), SCORCH = C(0xa04a2a), CHAR = C(0x1a0c08), EMBER = C(0xff6a00);
   const tmpC = new THREE.Color(), tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler();
 
   // Throws n points from (x, y, z): sparks, embers, dust.

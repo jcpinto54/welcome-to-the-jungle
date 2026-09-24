@@ -212,11 +212,16 @@ const Input = (() => {
     if (e.pointerType !== 'mouse') noteTouch();
     const b = e.currentTarget;
     b.classList.add('is-down');
+    b._downAt = now();
     press(b.getAttribute('data-action'), stamp(e.timeStamp, now()));
   }
 
-  // Keyboard activation of a focused button (Enter / Space) arrives as a click with detail 0.
-  function onButtonClick(e) { if (e.detail === 0) press(e.currentTarget.getAttribute('data-action'), now()); }
+  // Keyboard activation of a focused button (Enter / Space) arrives as a lone click. A tap also
+  // ends in a click, right after its pointerdown, and must not count twice.
+  function onButtonClick(e) {
+    const b = e.currentTarget;
+    if (e.detail === 0 && now() - (b._downAt || -1e9) > 800) press(b.getAttribute('data-action'), now());
+  }
 
   function press(action, t) {
     push(action, t);

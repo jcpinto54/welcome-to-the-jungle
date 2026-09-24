@@ -15,8 +15,7 @@ const UI = (() => {
     quake: ['x....x....x.', 'x...xx...xx.', 'xx..x....x..', '.x..xx..xx..', '.xx..x..x...', '..x..xxxx...', '..xx..xx....', 'xxxxxxxxxxxx', '.x..x..x..x.', '...x.....x..'],
     dash: ['xx...xx.....', '.xx...xx....', '..xx...xx...', '...xx...xx..', '..xx...xx...', '.xx...xx....', 'xx...xx.....'],
     lock: ['..xxx..', '.x...x.', '.x...x.', 'xxxxxxx', 'xxx.xxx', 'xxx.xxx', 'xxxxxxx'],
-    arrow: ['....h....', '...hhx...', '...hhx...', '..hhhxx..', '..hhhxx..', '.hhhhxxx.', '.hhhhxxx.', 'hhhhhxxxx', 'hhh...xxx', 'hh.....xx'],
-    book: ['.xxxx.xxxx.', 'x....x....x', 'x.xx.x.xx.x', 'x....x....x', 'x.xx.x.xx.x', 'x....x....x', 'xxxxxxxxxxx'],
+    book: ['xxx.......xxx', 'x..xxx.xxx..x', 'x.....x.....x', 'x.xxx.x.xxx.x', 'x.....x.....x', 'x.xxx.x.xxx.x', 'x.....x.....x', 'xxxxxxxxxxxxx'],
     pause: ['xx..xx', 'xx..xx', 'xx..xx', 'xx..xx', 'xx..xx', 'xx..xx', 'xx..xx'],
     sound: ['...x.....', '..xx..x..', 'xxxx...x.', 'xxxx.x.x.', 'xxxx...x.', '..xx..x..', '...x.....'],
     muted: ['...x.....', '..xx.....', 'xxxx.x.x.', 'xxxx..x..', 'xxxx.x.x.', '..xx.....', '...x.....'],
@@ -31,6 +30,8 @@ const UI = (() => {
     phone: ['.xxxxxxx.', 'x.......x', 'x.xxxxx.x', 'x.x...x.x', 'x.x...x.x', 'x.x...x.x', 'x.x...x.x', 'x.x...x.x', 'x.xxxxx.x', 'x.......x', 'x...x...x', '.xxxxxxx.'],
     check: ['......x', '.....xx', 'x...xx.', 'xx.xx..', '.xxx...', '..x....'],
   };
+  // The compass needle is a two-tone low-poly arrowhead, so it rotates cleanly.
+  const NEEDLE = '<svg class="jw-needle" viewBox="0 0 20 24" aria-hidden="true" focusable="false"><path class="n-l" d="M10 1L2 22l8-5z"/><path class="n-r" d="M10 1l8 21-8-5z"/></svg>';
   const ABIL = [['stomp', 'kick', 'SPACE', 'STOMP'], ['bolt', 'snare', 'LMB', 'BOLT'], ['quake', 'bass', 'RMB', 'QUAKE'], ['dash', 'dash', 'SHIFT', 'DASH']];
   const ROWKEY = { kick: 'STOMP', snare: 'BOLT', bass: 'QUAKE' };
   const CONTROLS_DESK = [['WASD', 'move'], ['MOUSE', 'look'], ['SPACE', 'stomp · kick'], ['LMB / J', 'bolt · snare'], ['RMB / K', 'quake · bass'], ['SHIFT', 'dash'], ['E', 'carve · talk · open'], ['TAB', 'spellbook'], ['ESC', 'pause'], ['M', 'mute']];
@@ -100,6 +101,7 @@ const UI = (() => {
     root = r || document.getElementById('ui');
     if (!root) return;
     for (const n of root.querySelectorAll(':scope > .jw-ui')) n.remove();
+    root.classList.remove('jw-hud-on', 'jw-beat', 'jw-booting', 'jw-cine', 'jw-talking', 'jw-reading', 'jw-paused', 'jw-ending');
     E = {}; memo = {}; cellState.fill(-1); bookState.fill(-1); ph = -1; bookPh = -1;
     dlg = null; book = null; bootCb = null; endH = null; promptText = undefined;
     buildHud(); buildFx(); buildDialog(); buildCards(); buildBook(); buildEnd(); buildBoot(); buildRotate();
@@ -128,7 +130,7 @@ const UI = (() => {
     E.xpFill = E.xp.firstChild;
 
     E.quest = el('div', 'jw-quest jw-panel is-off', hud);
-    E.compass = el('div', 'jw-compass', E.quest, `<i class="jw-ticks"></i><span class="jw-arrow">${icon('arrow')}</span>`);
+    E.compass = el('div', 'jw-compass', E.quest, `<i class="jw-ticks"></i><span class="jw-arrow">${NEEDLE}</span>`);
     E.arrow = E.compass.lastChild;
     const qb = el('div', 'jw-quest-body', E.quest);
     const qh = el('div', 'jw-quest-head', qb, `<span>QUEST <span class="jw-jp">目的</span></span><b class="jw-dist"></b>`);
@@ -229,9 +231,9 @@ const UI = (() => {
       `<p class="jw-book-sub"></p>` +
       `<button type="button" class="jw-btn jw-close"><span class="jw-key">TAB</span>CLOSE</button></header>` +
       `<div class="jw-book-scroll"><div class="jw-book-grid"></div></div>` +
-      `<div class="jw-book-foot"><section class="jw-legend"><h3>RUNES</h3>` +
-      `<p><i class="jw-c" data-s="2"></i>carved: plays at full volume</p><p><i class="jw-c" data-s="1"></i>draft: a ghost until you carve it</p>` +
-      `<p><i class="jw-c ph"></i>the playhead</p><p class="jw-legend-tip">Carve drafts at a Loop Stone <span class="jw-key">E</span></p></section>` +
+      `<div class="jw-legend"><span><i class="jw-c" data-s="2"></i>carved: full volume</span><span><i class="jw-c" data-s="1"></i>draft: a ghost until carved</span>` +
+      `<span><i class="jw-c ph"></i>playhead</span><span class="jw-legend-tip">carve drafts at a Loop Stone <span class="jw-key">E</span></span></div>` +
+      `<div class="jw-book-foot">` +
       `<section class="jw-controls"><h3>CONTROLS <span class="jw-jp">操作</span></h3><dl></dl></section>` +
       `<section class="jw-log"><h3>QUEST <span class="jw-jp">クエスト</span></h3><ol></ol></section></div>` +
       `<div class="jw-settings"></div>`;
@@ -328,6 +330,8 @@ const UI = (() => {
     put('chord', h.chord ? String(h.chord) : '-', (v) => { E.chord.textContent = v; });
     put('beat', (h.beat01 || 0) > 0.5, (v) => root.classList.toggle('jw-beat', v));
     abilities(h.abilities);
+    const inp = input();
+    if (h.abilities && inp && inp.setAbilities) inp.setAbilities(h.abilities); // the touch buttons show the same cooldowns
     put('free', h.locked === false, (v) => E.cross.classList.toggle('is-free', v));
     if (book) paintBook(h.snap, h.step);
   }
@@ -596,7 +600,7 @@ const UI = (() => {
     paintBook(null, lastHud ? lastHud.step : undefined);
     paintLog(book.h.quest || (window.JW && window.JW.quest));
     paintControls(E.bookControls, touchy() ? CONTROLS_TOUCH : CONTROLS_DESK);
-    E.bookSub.textContent = `Your song, two bars round. ${touchy() ? 'Tap' : 'Click'} a rune to carve or erase a hit.`;
+    E.bookSub.textContent = touchy() ? 'Tap a rune to carve or erase a hit. Swipe for bar 2.' : 'Click a rune to carve or erase a hit.';
     paintSettings();
     E.book.hidden = false;
     root.classList.add('jw-reading');

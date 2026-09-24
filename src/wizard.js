@@ -85,8 +85,9 @@ const Wizard = (() => {
     P('#ffffff', 16, 48, 8, 8);
     // the hat: weathered grey bark, cracked, with lichen, so it reads pale against the dark jungle
     put(TEX.bark, 64, 0, 32, 32, '#3a2a1c');
-    x.globalAlpha = 0.45; P('#b9b2a4', 64, 0, 32, 32); x.globalAlpha = 1;
-    for (let k = 0; k < 6; k++) { let X = 64 + ((r() * 32) | 0); for (let Y = 0; Y < 32; Y++) { P('#3b3128', X, Y); if (r() < 0.3) X = 64 + mod(X - 64 + (r() < 0.5 ? -1 : 1), 32); } }
+    x.globalAlpha = 0.4; P('#b3aa98', 64, 0, 32, 32); x.globalAlpha = 1;
+    for (let k = 0; k < 9; k++) { let X = 64 + ((r() * 32) | 0); for (let Y = 0; Y < 32; Y++) { P('#2e261f', X, Y); if (r() < 0.3) X = 64 + mod(X - 64 + (r() < 0.5 ? -1 : 1), 32); } }
+    for (let i = 0; i < 7; i++) { const X = 64 + ((r() * 29) | 0), Y = (r() * 29) | 0; P('#4f6b2a', X, Y, 2 + ((r() * 3) | 0), 1 + ((r() * 2) | 0)); P('#6b8a3a', X, Y); }
     for (let i = 0; i < 30; i++) P(['#8f9d7a', '#c9c6b0', '#6b7a52'][(r() * 3) | 0], 64 + ((r() * 32) | 0), (r() * 32) | 0, 1 + ((r() * 2) | 0), 1);
     atlasTex = new THREE.CanvasTexture(c);
     atlasTex.magFilter = atlasTex.minFilter = THREE.NearestFilter;
@@ -179,9 +180,10 @@ const Wizard = (() => {
   const CH = ['bx', 'by', 'bz', 'hx', 'hy', 'hz', 'sx', 'sy', 'sz', 'cx', 'cy', 'cz', 'nx', 'kx', 'ky', 'kz', 'jaw',
     'lsx', 'lsy', 'lsz', 'le', 'lwx', 'lwz', 'rsx', 'rsy', 'rsz', 're', 'rwx', 'rwz', 'tx', 'ty', 'tz',
     'lfx', 'lfy', 'lfz', 'lfp', 'rfx', 'rfy', 'rfz', 'rfp', 'flare', 'sink', 'eye', 'orb', 'shake'];
-  const REST = { hx: 0.14, sx: 0.3, cx: 0.26, nx: 0.2, kx: -0.86, lsx: 0.22, lsz: 0.34, le: 0.55, lwx: 0.35, rsx: 0.42, rsz: 0.16, re: 1.1, rwx: 0.1, tx: 0.02, tz: 0.1, eye: 1, orb: 1 };
+  const REST = { hx: 0.14, sx: 0.3, cx: 0.26, cz: 0.06, nx: 0.2, kx: -0.86, kz: 0.1, lsx: 0.22, lsz: 0.34, le: 0.55, lwx: 0.35, rsx: 0.42, rsz: 0.16, re: 1.1, rwx: 0.1, tx: 0.02, tz: 0.1, eye: 1, orb: 1 };
   const FOOT = { l: [0.2, 0, 0.1], r: [-0.21, 0, -0.06] };
   const HIP_X = 0.12, HIP_Y = 1.08, THIGH = 0.58, SHIN = 0.56, ANK = 0.1;
+  const FEET = [['l', 0], ['r', 0.5]]; // the right foot is half a stride behind
 
   // One-shot actions: additive keyframes [time, deltas, ease], starting and ending at rest.
   const ACTS = {
@@ -256,7 +258,7 @@ const Wizard = (() => {
     const R = Rig(), { bone, add } = R;
     const C = {
       bark: [2.0, 1.75, 1.45], barkDk: [1.5, 1.3, 1.1], pale: [2.5, 2.3, 1.95], hat: [1.5, 1.42, 1.32],
-      moss: [1.3, 1.6, 0.8], mossDk: [0.78, 0.98, 0.5], beard: [0.58, 0.66, 0.5], strand: [1.35, 1.5, 1.15], leaf: [1.1, 1.4, 0.9],
+      moss: [1.22, 1.45, 0.74], mossDk: [0.78, 0.98, 0.5], beard: [0.58, 0.66, 0.5], strand: [1.35, 1.5, 1.15], leaf: [1.1, 1.4, 0.9],
       hollow: [0.02, 0.035, 0.012], eye: [0.75, 1.0, 0.3], cap: [1.0, 0.5, 0.12], capTop: [1.0, 0.72, 0.25], stem: [0.95, 0.88, 0.75], crack: [0.45, 0.8, 0.22],
     };
     let seed = 1;
@@ -334,9 +336,16 @@ const Wizard = (() => {
       const a = 1.45 + i * 0.85;
       add(skirt, strand(0.15, 0.5 + (i % 2) * 0.25), M(Math.sin(a) * 0.3, -0.16, Math.cos(a) * 0.3, 0, a, 0), C.strand, 'strand');
     }
-    for (let i = 0; i < 4; i++) {
-      const a = 1.7 + i * 0.95;
-      add(chest, strand(0.2, 0.42), M(Math.sin(a) * 0.36, 0.36, Math.cos(a) * 0.3 - 0.06, 0, a, 0), C.strand, 'strand');
+    for (let i = 0; i < 6; i++) {
+      const a = 1.6 + i * 0.62;
+      add(chest, strand(0.18, 0.5 + (i % 3) * 0.12), M(Math.sin(a) * 0.36, 0.34, Math.cos(a) * 0.3 - 0.08, 0, a, 0), C.strand, 'strand');
+    }
+    const fungus = (b, x, y, z, ry, sc) => add(b, new THREE.CircleGeometry(0.1 * sc, 5, 0, Math.PI).rotateX(-Math.PI / 2 + 0.25), M(x, y, z, 0, ry, 0), [1.7, 1.35, 0.95], 'plain');
+    fungus(spine, 0.12, 0.12, -0.22, Math.PI + 0.5, 1.2);
+    fungus(spine, 0.16, 0.22, -0.2, Math.PI + 0.7, 0.9);
+    fungus(spine, -0.14, 0.05, -0.22, Math.PI - 0.5, 1.0);
+    for (const [x, len, rz] of [[0.14, 0.95, 0.12], [-0.06, 1.1, -0.05], [-0.18, 0.85, -0.15]]) {
+      add(skirt, bend(G(limb(0.03, 0.004, len, 4, 2), 0.02), len, rz * 0.6, -0.08), M(x, -0.12, -0.26, 0.06, 0, rz), C.barkDk, 'root');
     }
 
     /* neck and head */
@@ -418,10 +427,15 @@ const Wizard = (() => {
       const grip = s < 0 ? -0.8 : -0.3;
       for (let i = 0; i < 4; i++) {
         const m1 = M(s * (-0.033 + i * 0.022), -0.09, 0, grip - (i === 3 ? 0.1 : 0), 0, s * (-0.4 + i * 0.26));
-        add(A.wr, limb(0.016, 0.011, 0.14, 4, 1), m1, C.pale, 'root');
-        add(A.wr, limb(0.011, 0.002, 0.14 - i * 0.012, 4, 1), m1.clone().multiply(M(0, -0.14, 0, grip * 0.8)), C.pale, 'root');
+        add(A.wr, limb(0.018, 0.012, 0.18, 4, 1), m1, C.pale, 'root');
+        add(A.wr, G(blob(0.017, 0), 0.006), m1.clone().multiply(M(0, -0.18, 0)), C.pale, 'root');
+        add(A.wr, limb(0.012, 0.002, 0.18 - i * 0.015, 4, 1), m1.clone().multiply(M(0, -0.18, 0, grip * 0.9)), C.pale, 'root');
       }
-      add(A.wr, limb(0.014, 0.002, 0.12, 4, 1), M(-s * 0.035, -0.04, 0.03, -1.0, 0, -s * 0.7), C.pale, 'root');
+      add(A.wr, limb(0.015, 0.002, 0.15, 4, 1), M(-s * 0.035, -0.04, 0.03, -1.0, 0, -s * 0.7), C.pale, 'root');
+      // knots and spurs along the branch arm
+      add(A.sh, G(blob(0.05, 0), 0.02), M(0.03 * s, -0.33, 0.03), C.barkDk);
+      add(A.el, G(blob(0.045, 0), 0.02), M(-0.025 * s, -0.3, -0.02), C.barkDk);
+      add(A.el, limb(0.02, 0.003, 0.2, 4, 1, true), M(0.03 * s, -0.36, -0.02, -0.9, 0, -0.6 * s), C.barkDk);
     }
 
     /* long legs ending in splayed roots */
@@ -512,7 +526,7 @@ const Wizard = (() => {
     /* animation state */
     const st = {
       t: 0, walk: 0, act: null, actT: 0, fade: null, fadeT: 0, dead: false,
-      emerge: 1, emergeAuto: false, flash: 0, flashCol: new THREE.Color(0xffffff), eye: 1,
+      emerge: 1, emergeAuto: false, flash: 0, flashCol: new THREE.Color(0xffffff),
       sHat: spring(90, 8), sHatZ: spring(80, 7), sBeard: spring(60, 6), sBeardZ: spring(55, 6), sSkirt: spring(50, 6),
     };
     const p = {}, last = {};
@@ -547,7 +561,7 @@ const Wizard = (() => {
       const w = st.walk;
       if (w > 0.001) {
         const Gp = pos / 8, ph = Gp * Math.PI * 2, S = 0.85 * w, H = 0.24 * Math.min(1, w * 1.5), D = 0.55;
-        for (const [sd, off] of [['l', 0], ['r', 0.5]]) {
+        for (const [sd, off] of FEET) {
           const f = mod(Gp + off, 1);
           if (f < D) p[sd + 'fz'] += S / 2 - S * (f / D);
           else {
@@ -606,14 +620,19 @@ const Wizard = (() => {
       AR.sh.rotation.set(-p.rsx - torso, -p.rsy, -p.rsz);
       AR.el.rotation.set(-p.re, 0, 0);
       AR.wr.rotation.set(-p.rwx, 0, -p.rwz);
-      // secondary motion: the hat and beard lag behind the head, the skirt trails
-      const lag = stepSpring(st.sHat, hp - p.by * 2, dt), lagZ = stepSpring(st.sHatZ, hr, dt);
+      // secondary motion: the hat and beard lag behind the head, the skirt trails. Springs are
+      // integrated in small slices so a long frame cannot blow them up.
+      const n = Math.max(1, Math.ceil(dt * 120)), h = dt / n;
+      let lag = 0, lagZ = 0, bl = 0, blz = 0, sl = 0;
+      for (let i = 0; i < n; i++) {
+        lag = stepSpring(st.sHat, hp - p.by * 2, h); lagZ = stepSpring(st.sHatZ, hr, h);
+        bl = stepSpring(st.sBeard, hp + p.jaw, h); blz = stepSpring(st.sBeardZ, hr, h);
+        sl = stepSpring(st.sSkirt, p.hx - p.by, h);
+      }
       hat.rotation.set(-0.2 + lag * 0.9, 0, 0.1 + lagZ * 0.8);
-      hat2.rotation.set(-0.38 + lag * 0.7, 0, 0.2 + lagZ * 0.6);
-      hat3.rotation.set(-0.7 + lag * 1.1, 0, 0.42 + lagZ);
-      const bl = stepSpring(st.sBeard, hp + p.jaw, dt), blz = stepSpring(st.sBeardZ, hr, dt);
+      hat2.rotation.set(-0.26 + lag * 0.7, 0, 0.3 + lagZ * 0.6);
+      hat3.rotation.set(-0.45 + lag * 1.1, 0, 0.62 + lagZ);
       beard.rotation.set(-(hp + p.jaw) + bl * 0.9 + p.flare * 0.25, 0, -hr + blz * 0.9);
-      const sl = stepSpring(st.sSkirt, p.hx - p.by, dt);
       skirt.rotation.set(-p.hx * 0.6 + sl * 0.8 + p.flare * 0.35, 0, -p.hz * 0.5);
       legIK(LL, FOOT.l[0] + p.lfx, FOOT.l[1] + p.lfy, FOOT.l[2] + p.lfz, p.lfp);
       legIK(LR, FOOT.r[0] - p.rfx, FOOT.r[1] + p.rfy, FOOT.r[2] + p.rfz, p.rfp);
@@ -646,8 +665,8 @@ const Wizard = (() => {
         else if (g.kind === 'orb') { k = orbK * (0.55 + 0.25 * beat + 0.6 * st.flash); size *= 0.85 + 0.25 * beat + 0.5 * st.flash; }
         else if (g.kind === 'core') k = orbK;
         else if (g.kind === 'shroom') k = Math.min(1, eye) * (0.7 + 0.3 * beat);
-        const c = g.kind === 'orb' ? [col.r, col.g, col.b] : g.col;
-        Cc.setXYZ(i, c[0] * k, c[1] * k, c[2] * k);
+        if (g.kind === 'orb') Cc.setXYZ(i, col.r * k, col.g * k, col.b * k);
+        else Cc.setXYZ(i, g.col[0] * k, g.col[1] * k, g.col[2] * k);
         Sz.setX(i, size);
       });
       const n0 = glowList.length, alive = st.dead ? 0 : Math.min(1, eye);
@@ -671,9 +690,7 @@ const Wizard = (() => {
       const target = o.moving ? clamp(o.speed01 == null ? 1 : o.speed01, 0, 1) : 0;
       st.walk += (target - st.walk) * (1 - Math.exp(-dt * 9));
       pose(dt, o);
-      // springs are stepped in small slices so a long frame cannot blow them up
-      const n = Math.max(1, Math.ceil(dt / (1 / 120)));
-      for (let i = 0; i < n; i++) applyPose(dt / n);
+      applyPose(dt);
       const pos = typeof o.songPos === 'number' && o.songPos >= 0 ? o.songPos : (o.t != null ? o.t : st.t) / STEP;
       updateGlow(pos);
     }

@@ -21,7 +21,7 @@ const Terrain = (() => {
     [[-64, 58], [-56, 44], [-44, 28], [-34, 14], [-30, 6]],
     [[-30, 6], [-14, 5], [2, 4], [13, 3]],
     [[13, 3], [14, -6], [14, -16], [20, -24], [28, -34], [30, -44], [24, -51]],
-    [[24, -51], [44, -52], [56, -57], [61, -63], [61, -72], [64, -80], [70, -86]],
+    [[24, -51], [32, -46], [44, -46.5], [54, -52], [61, -63], [61, -72], [64, -80], [70, -86]],
     [[70, -86], [80, -94], [90, -102]],
   ];
   const PLATEAU_Y = 9, WATER_Y = 0, MAX_SLOPE = 1.1;
@@ -55,7 +55,9 @@ const Terrain = (() => {
     h = lerp(h, 1.0, smoothstep(7, 4, d2(x, z, 'spawn')));
     // clearing and paths
     h = lerp(h, 1.0, smoothstep(15, 9, d2(x, z, 'clearing')));
-    h = lerp(h, Math.max(h * 0.4 + 0.55, 0.55), 0.85 * smoothstep(4.2, 1.2, pathDist(x, z)));
+    const pd = pathDist(x, z);
+    h = lerp(h, Math.max(h * 0.4 + 0.55, 0.55), 0.85 * smoothstep(4.2, 1.2, pd));
+    h = Math.max(h, lerp(-9, 0.45, smoothstep(17, 11, pd))); // no stray puddles beside the paths
     // ruins courtyard
     h = lerp(h, 1.2, smoothstep(14, 10, Math.max(Math.abs(x - 13), Math.abs(z - 4))));
     // Moth Hollow: a dry sunken bowl inside a rim

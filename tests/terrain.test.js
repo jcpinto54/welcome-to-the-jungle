@@ -68,6 +68,16 @@ test('every path is walkable both ways in quarter-unit steps', () => {
   });
 });
 
+test('the paths stay dry: you never wade to follow them', () => {
+  for (const path of PATHS) for (let i = 0; i < path.length - 1; i++) {
+    const [ax, az] = path[i], [bx, bz] = path[i + 1], n = Math.ceil(Math.hypot(bx - ax, bz - az) * 2);
+    for (let k = 0; k <= n; k++) {
+      const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n;
+      assert.ok(heightAt(x, z) > WATER_Y + 0.25, `path under water at ${x.toFixed(1)},${z.toFixed(1)} (${heightAt(x, z).toFixed(2)})`);
+    }
+  }
+});
+
 test('the ridge at z=-11 blocks the way north except at the gap at x=14', () => {
   for (const x of [-30, 40]) {
     assert.ok(walk(x, 0, x, -22), `ridge blocks going north at x=${x}`);
@@ -96,6 +106,15 @@ test('landmarks sit above the water, the swamp and pool are below it', () => {
     assert.ok(heightAt(...L[k]) > WATER_Y + 0.3, `${k} is dry (${heightAt(...L[k]).toFixed(2)})`);
   }
   for (const k of ['swamp', 'pool']) assert.ok(heightAt(...L[k]) < WATER_Y - 0.4, `${k} is under water`);
+});
+
+test('no stray water beside the paths, except the swamp and the pool', () => {
+  const wet = [];
+  for (let z = -116; z <= 94; z += 2) for (let x = -98; x <= 98; x += 2) {
+    if (pathDist(x, z) > 12 || Math.hypot(x - L.pool[0], z - L.pool[1]) < 13 || Math.hypot(x - L.swamp[0], z - L.swamp[1]) < 30) continue;
+    if (heightAt(x, z) < WATER_Y + 0.05) wet.push(`${x},${z}`);
+  }
+  assert.deepEqual(wet, []);
 });
 
 test('the Sub Toad sits on a rock islet in the pool', () => {

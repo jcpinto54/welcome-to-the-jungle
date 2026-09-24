@@ -23,24 +23,26 @@
 <script src="../src/core.js"></script>
 <script src="../src/textures.js"></script>
 <script>
-// Dev tool, standalone: it does not load world.js. This tiny stand-in gives the models the
-// same PS1 vertex snapping World.ps1 applies in the game.
-const World = (() => {
-  const SNAP = { value: new THREE.Vector2(213, 120) };
-  function ps1(mat) {
-    const prev = mat.onBeforeCompile;
-    mat.onBeforeCompile = (shader, r) => {
-      prev.call(mat, shader, r);
-      shader.uniforms.uSnap = SNAP;
-      shader.vertexShader = 'uniform vec2 uSnap;\n' + shader.vertexShader.replace('#include <project_vertex>',
-        '#include <project_vertex>\n gl_Position.xy = floor(gl_Position.xy / gl_Position.w * uSnap + 0.5) / uSnap * gl_Position.w;');
-    };
-    const key = mat.customProgramCacheKey.bind(mat);
-    mat.customProgramCacheKey = () => key() + 'ps1';
-    return mat;
-  }
-  return { ps1, SNAP, stub: true };
-})();
+// Dev tool, standalone: it does not need world.js. This stand-in mirrors World.ps1 (PS1 vertex
+// snapping plus the shared uTime uniform); add ?world to use the real world.js instead.
+if (new URLSearchParams(location.search).has('world')) {
+  document.write('<script src="../src/terrain.js"><\/script><script src="../src/world.js"><\/script>');
+} else {
+  window.World = (() => {
+    const SNAP = { value: new THREE.Vector2(213, 120) }, TIME = { value: 0 };
+    function ps1(mat) {
+      mat.onBeforeCompile = (shader) => {
+        shader.uniforms.uSnap = SNAP;
+        shader.uniforms.uTime = TIME;
+        shader.vertexShader = 'uniform vec2 uSnap;\nuniform float uTime;\n' + shader.vertexShader.replace('#include <project_vertex>',
+          '#include <project_vertex>\n gl_Position.xy = floor(gl_Position.xy / gl_Position.w * uSnap + 0.5) / uSnap * gl_Position.w;');
+      };
+      mat.customProgramCacheKey = () => 'ps1';
+      return mat;
+    }
+    return { ps1, SNAP, TIME, stub: true };
+  })();
+}
 </script>
 <script src="../src/wizard.js"></script>
 <script src="../src/creatures.js"></script>

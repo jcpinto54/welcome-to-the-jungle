@@ -99,8 +99,18 @@ test('World keeps its contract', { timeout: 60000 }, async () => {
         pyramid: W.pyramid.group.isObject3D && W.pyramid.doorWorld.isVector3 && W.pyramid.open === false,
         doorFree: !W.colliders.blockedByBox(W.pyramid.doorWorld.x, W.pyramid.doorWorld.z, 0.5),
         tree: W.tree.group.isObject3D && W.tree.wound.isObject3D && W.tree.woundMat.isMaterial && W.tree.woundGlow.isObject3D,
+        woundFacesSpawn: (() => {
+          const v = W.tree.wound.getWorldPosition(new THREE.Vector3()), [tx, tz] = T.L.tree, [sx, sz] = T.L.spawn;
+          const r = Math.hypot(v.x - tx, v.z - tz), cos = ((v.x - tx) * (sx - tx) + (v.z - tz) * (sz - tz)) / (r * Math.hypot(sx - tx, sz - tz));
+          return r > 2.5 && r < 6 && cos > 0.95 && v.y > T.heightAt(tx, tz);
+        })(),
         altarTop: Number.isFinite(W.altarTop) && W.altarTop > T.heightAt(...T.L.altar),
         fireflies: W.fireflies.length > 20 && W.fireflies.every((f) => [f.x, f.y, f.z].every(Number.isFinite) && f.taken === false),
+        firefliesReachable: W.fireflies.every((f) => {
+          const p = { x: f.x, z: f.z };
+          W.colliders.collide(p, 0.5);
+          return p.x === f.x && p.z === f.z && T.slopeAt(f.x, f.z) <= T.MAX_SLOPE && T.pathDist(f.x, f.z) <= 4.2 && f.y - Math.max(T.heightAt(f.x, f.z), T.WATER_Y) < 3;
+        }),
         moths: W.mothSpawns.length > 5 && W.mothSpawns.every((m) => m.length === 2),
         fns: ['update', 'ps1', 'carveStone', 'updateStones', 'burnVines', 'breakGate', 'openPyramid', 'bounceMushrooms'].every((k) => typeof W[k] === 'function'),
         snap: W.SNAP.value.isVector2 && typeof W.TIME.value === 'number',
