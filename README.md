@@ -22,6 +22,8 @@ Open `index.html` in Chrome, Firefox or Edge on a computer. There's nothing to i
 
 Cast on the beat for stronger spells. Everything you play goes into the loop at the bottom of the screen. Press E at a Loop Stone to carve it into the song.
 
+On a phone (iPhone or Android), open the game's link in Safari or Chrome and hold the phone sideways. The left thumb steers with a joystick, dragging on the right turns the camera, and the coloured buttons cast spells. Use "Add to Home Screen" to play full-screen.
+
 To hear the real opening scream, drop a `welcome.mp3` into `assets/audio/` (see the note there about licensing).
 
 ## Develop

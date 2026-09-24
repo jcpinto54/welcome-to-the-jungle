@@ -2,7 +2,7 @@
 
 ## The pitch
 
-A mobile game: it plays in iPhone Safari and Android Chrome in landscape, and installs to the home screen like an app. App Store and Play Store builds come later by wrapping the same code with Capacitor, which needs a Mac with Xcode.
+It runs in the browser on a computer (keyboard and mouse, the main way to play) and on phones (iPhone and Android, touch controls, landscape). On a phone it installs to the home screen like an app. App Store and Play Store builds come later by wrapping the same code with Capacitor, which needs a Mac with Xcode.
 
 You are the Jungle Wizard: a swamp creature made of bark, roots and moss, torn out of a giant tree at the start of the game. The jungle has gone grey and silent. Your spells are drums. Every stomp is a kick, every bolt is a snare, every quake is a sub-bass drop, and they all lock to a 170 BPM lo-fi jungle groove. The jungle loops back what you play. Carve those loops into the Loop Stones and colour floods back into the world. Finish the song and the Lost Pyramid opens.
 
