@@ -43,7 +43,7 @@ const UI = (() => {
   };
   const TOAST_MS = { zone: 3600, unlock: 3600, carve: 3400, quest: 3400 };
 
-  const CJK = /[　-ヿ㐀-鿿＀-￯]+/g;
+  const CJK = /[\u3000-\u30ff\u3400-\u9fff\uff00-\uffef]+/g; // kana, kanji, full-width forms
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const rich = (s) => esc(s).replace(CJK, (m) => `<span class="jw-jp">${m}</span>`);
 
@@ -363,7 +363,9 @@ const UI = (() => {
     put('qang', deg, (a) => { E.arrow.style.transform = `rotate(${a}deg)`; });
   }
 
-  const cellCode = (snap, lane, i) => (snap.song[lane][i] ? 2 : 0) | (snap.draft[lane][i] ? 1 : 0);
+  // Drafts are booleans in a snapshot, or recorded steps (-1 = empty) straight from seq.draft.
+  const isDraft = (d) => d === true || (typeof d === 'number' && d >= 0);
+  const cellCode = (snap, lane, i) => (snap.song[lane][i] ? 2 : 0) | (isDraft(snap.draft[lane][i]) ? 1 : 0);
   const stepOf = (step) => (Number.isFinite(step) && step >= 0 ? Math.floor(step) % LOOP : -1);
 
   function strip(snap, step, ab) {
@@ -694,6 +696,7 @@ const UI = (() => {
     root.classList.toggle('jw-paused', !!show);
   }
 
+  // Stats arrive as {key: value} (known keys get labels and units) or as [label, value] pairs.
   function fmtStat(k, v) {
     if (typeof v !== 'number') return esc(v);
     if (/^(time|seconds|playTime)$/.test(k)) { const s = Math.max(0, Math.round(v)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
@@ -704,8 +707,9 @@ const UI = (() => {
   function end(stats, handlers) {
     if (!ready()) return;
     endH = handlers || {};
-    const rows = Array.isArray(stats) ? stats : Object.entries(stats || {}).map(([k, v]) => [STAT_LABEL[k] || k.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase(), fmtStat(k, v)]);
-    E.endStats.innerHTML = rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${typeof v === 'string' ? v : esc(v)}</dd></div>`).join('');
+    const rows = Array.isArray(stats) ? stats.map(([k, v]) => [k, esc(v)])
+      : Object.entries(stats || {}).map(([k, v]) => [STAT_LABEL[k] || k.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase(), fmtStat(k, v)]);
+    E.endStats.innerHTML = rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('');
     E.end.hidden = false;
     root.classList.add('jw-ending');
     const inp = input();

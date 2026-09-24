@@ -86,8 +86,8 @@ questMid.event('carve', 0); questMid.event('spirit', 'panther'); questMid.event(
 const questLate = Quest.create(L);
 for (const [n, a] of [['carve', 0], ['spirit', 'panther'], ['vines'], ['carve', 1], ['spirit', 'toad'], ['gate'], ['carve', 2]]) questLate.event(n, a);
 
-const hudOf = (q, seq, o) => Object.assign({
-  objective: Object.assign({ text: q.objective().text }, o.obj), snap: seq.snapshot(), chord: 'FMAJ9', beat01: 0.9, locked: true,
+const hudOf = (q, seq, { obj, ...o }) => Object.assign({
+  objective: Object.assign({ text: q.objective().text }, obj), snap: seq.snapshot(), chord: 'FMAJ9', beat01: 0.9, locked: true,
 }, o);
 const HUD = {
   start: hudOf(Quest.create(L), seqStart, { vibe: 3, maxVibe: 3, fireflies: 0, level: 1, xp01: 0.08, step: 2, obj: { angle: -0.45, dist: 18 }, abilities: ab(false, false), beat01: 0.2 }),

@@ -325,6 +325,8 @@ const Input = (() => {
     document.addEventListener('pointerlockchange', onLockChange);
     document.addEventListener('pointerlockerror', () => { lockFails++; });
     document.addEventListener('visibilitychange', () => { if (document.hidden) clearHeld(); });
+    // iOS Safari pinch-zooms even with touch-action: none unless its gesture events are cancelled.
+    for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault());
   }
 
   /* ---------- API ---------- */

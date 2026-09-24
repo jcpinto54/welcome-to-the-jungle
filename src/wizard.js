@@ -166,9 +166,10 @@ const Wizard = (() => {
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
     pts.renderOrder = 3;
-    pts.onBeforeRender = (renderer) => {
+    pts.onBeforeRender = (renderer, scene, camera) => {
       const rt = renderer.getRenderTarget();
       mat.uniforms.halfH.value = (rt ? rt.height : renderer.domElement.height) / 2;
+      if (pts.userData.beforeRender) pts.userData.beforeRender(camera);
     };
     return pts;
   }
@@ -257,8 +258,8 @@ const Wizard = (() => {
   function create() {
     const R = Rig(), { bone, add } = R;
     const C = {
-      bark: [2.0, 1.75, 1.45], barkDk: [1.5, 1.3, 1.1], pale: [2.5, 2.3, 1.95], hat: [1.5, 1.42, 1.32],
-      moss: [1.22, 1.45, 0.74], mossDk: [0.78, 0.98, 0.5], beard: [0.58, 0.66, 0.5], strand: [1.35, 1.5, 1.15], leaf: [1.1, 1.4, 0.9],
+      bark: [1.25, 1.1, 0.92], barkDk: [0.9, 0.8, 0.68], pale: [1.55, 1.42, 1.2], hat: [0.82, 0.76, 0.68],
+      moss: [0.8, 0.92, 0.5], mossDk: [0.55, 0.64, 0.36], beard: [0.42, 0.46, 0.38], strand: [0.88, 0.95, 0.76], leaf: [0.8, 1.0, 0.6],
       hollow: [0.02, 0.035, 0.012], eye: [0.75, 1.0, 0.3], cap: [1.0, 0.5, 0.12], capTop: [1.0, 0.72, 0.25], stem: [0.95, 0.88, 0.75], crack: [0.45, 0.8, 0.22],
     };
     let seed = 1;
@@ -302,8 +303,9 @@ const Wizard = (() => {
     add(chest, G(limb(0.15, 0.27, 0.46, 7, 2, true), 0.04), M(0, 0, 0, 0, 0.2, 0, [1, 1, 0.72]), C.bark);
     // hunched moss mantle over shoulders and back
     add(chest, G(blob(0.3, 1), 0.09), M(0, 0.36, -0.16, 0.3, 0, 0, [1.35, 0.78, 1.05]), C.moss, 'moss');
-    add(chest, G(blob(0.16, 1), 0.05), M(0.25, 0.42, -0.02, 0, 0, 0.3, [1.15, 0.7, 1.2]), C.moss, 'moss');
-    add(chest, G(blob(0.16, 1), 0.05), M(-0.25, 0.42, -0.02, 0, 0, -0.3, [1.15, 0.7, 1.2]), C.moss, 'moss');
+    add(chest, G(blob(0.16, 1), 0.09), M(0.25, 0.42, -0.02, 0, 0, 0.3, [1.2, 0.55, 1.2]), C.mossDk, 'moss');
+    add(chest, G(blob(0.16, 1), 0.09), M(-0.25, 0.42, -0.02, 0, 0, -0.3, [1.2, 0.55, 1.2]), C.mossDk, 'moss');
+    for (const sd of [1, -1]) add(chest, strand(0.14, 0.38), M(0.3 * sd, 0.4, 0.1, 0.35, 0.5 * sd, 0), C.strand, 'strand');
     add(chest, G(new THREE.CylinderGeometry(0.34, 0.28, 0.46, 8, 1, true, 1.7, Math.PI * 2 - 3.4), 0.05), M(0, 0.18, -0.05), C.moss, 'moss');
     // broken branches growing out of his back
     const twig = (b, x, y, z, rx, rz, len, r0, color = C.pale) => {
@@ -474,7 +476,7 @@ const Wizard = (() => {
 
     /* assemble: two skinned meshes share one skeleton */
     const tex = atlas();
-    const matBody = selfLit(ps1(new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, flatShading: true, alphaTest: 0.5, side: THREE.DoubleSide })), 0.24);
+    const matBody = selfLit(ps1(new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, flatShading: true, alphaTest: 0.5, side: THREE.DoubleSide })), 0.16);
     const matGlow = ps1(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     const group = new THREE.Group();
     group.name = 'wizard';
@@ -511,14 +513,23 @@ const Wizard = (() => {
     // glow billboards: eyes, orb (halo + core), mushrooms, drifting spores
     const SPORES = 8;
     const glowList = [
-      { b: head, off: new THREE.Vector3(0.052, 0.175, 0.15), size: 0.28, col: C.eye, kind: 'eye' },
-      { b: head, off: new THREE.Vector3(-0.052, 0.175, 0.15), size: 0.28, col: C.eye, kind: 'eye' },
+      { b: head, off: new THREE.Vector3(0.052, 0.175, 0.15), size: 0.2, col: C.eye, kind: 'eye' },
+      { b: head, off: new THREE.Vector3(-0.052, 0.175, 0.15), size: 0.2, col: C.eye, kind: 'eye' },
       { b: staffTop, off: new THREE.Vector3(), size: 1.25, col: [0.5, 0.96, 1], kind: 'orb' },
       { b: staffTop, off: new THREE.Vector3(), size: 0.45, col: [1, 1, 1], kind: 'core' },
       ...shrooms.map((m) => ({ b: m.b, off: m.off, size: 0.22, col: [1, 0.5, 0.12], kind: 'shroom' })),
     ];
     const pts = glowPoints(glowList.length + SPORES);
     group.add(pts);
+    const eyeGlow = [0, 0], fwd = new THREE.Vector3(), toCam = new THREE.Vector3(), eyeW = new THREE.Vector3();
+    pts.userData.beforeRender = (camera) => {
+      fwd.setFromMatrixColumn(head.matrixWorld, 2).normalize();
+      eyeW.setFromMatrixPosition(head.matrixWorld);
+      toCam.setFromMatrixPosition(camera.matrixWorld).sub(eyeW).normalize();
+      const k = smoothstep(-0.05, 0.4, fwd.dot(toCam)), Cc = pts.geometry.attributes.gcol;
+      for (let i = 0; i < 2; i++) Cc.setXYZ(i, C.eye[0] * eyeGlow[i] * k, C.eye[1] * eyeGlow[i] * k, C.eye[2] * eyeGlow[i] * k);
+      Cc.needsUpdate = true;
+    };
     const spores = [];
     const sr = rng(31);
     for (let i = 0; i < SPORES; i++) spores.push({ x: (sr() - 0.5) * 0.7, z: -0.1 - sr() * 0.3, y: 1.3 + sr() * 0.8, ph: sr(), sp: 0.22 + sr() * 0.15 });
@@ -665,6 +676,7 @@ const Wizard = (() => {
         else if (g.kind === 'orb') { k = orbK * (0.55 + 0.25 * beat + 0.6 * st.flash); size *= 0.85 + 0.25 * beat + 0.5 * st.flash; }
         else if (g.kind === 'core') k = orbK;
         else if (g.kind === 'shroom') k = Math.min(1, eye) * (0.7 + 0.3 * beat);
+        if (g.kind === 'eye') eyeGlow[i] = k;
         if (g.kind === 'orb') Cc.setXYZ(i, col.r * k, col.g * k, col.b * k);
         else Cc.setXYZ(i, g.col[0] * k, g.col[1] * k, g.col[2] * k);
         Sz.setX(i, size);
@@ -673,7 +685,7 @@ const Wizard = (() => {
       spores.forEach((s, i) => {
         const u = mod(st.t * s.sp + s.ph, 1);
         P.setXYZ(n0 + i, s.x + Math.sin(u * 9 + i) * 0.12, s.y + u * 1.3, s.z - u * st.walk * 1.2 + Math.cos(u * 7 + i) * 0.1);
-        const f = Math.sin(u * Math.PI) * alive * 0.55;
+        const f = Math.sin(u * Math.PI) * alive * 0.4;
         Cc.setXYZ(n0 + i, 0.75 * f, 1.0 * f, 0.4 * f);
         Sz.setX(n0 + i, 0.09);
       });

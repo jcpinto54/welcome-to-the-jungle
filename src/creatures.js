@@ -333,8 +333,8 @@ const Creatures = (() => {
     ];
     // wings lie flat, span along x; `wing` = +1 left, -1 right (flapped in the vertex shader)
     for (const s of [1, -1]) {
-      parts.push({ geo: wingUV(new THREE.PlaneGeometry(0.82, 0.52).translate(0.46, 0, 0)), m: M(0, 0.03, 0.06, -Math.PI / 2, -0.28 * s, 0, [s, 1, 1]), color: [1, 1, 1], wing: s });
-      parts.push({ geo: wingUV(new THREE.PlaneGeometry(0.56, 0.42).translate(0.32, 0, 0)), m: M(0, 0.0, -0.14, -Math.PI / 2, -0.62 * s, 0, [s, 1, 1]), color: [0.88, 0.87, 0.95], wing: s });
+      parts.push({ geo: wingUV(new THREE.PlaneGeometry(0.82, 0.52).translate(0.46, 0, 0)), m: M(0, 0.03, 0.06, -Math.PI / 2, -0.28 * s, 0, [s, 1, 1]), color: [0.8, 0.78, 0.88], wing: s });
+      parts.push({ geo: wingUV(new THREE.PlaneGeometry(0.56, 0.42).translate(0.32, 0, 0)), m: M(0, 0.0, -0.14, -Math.PI / 2, -0.62 * s, 0, [s, 1, 1]), color: [0.7, 0.69, 0.8], wing: s });
     }
     const geo = merge(parts, ['wing']);
     const flap = {
@@ -346,7 +346,7 @@ const Creatures = (() => {
       }`,
     };
     const make = (lit, key) => patch(ps1(new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, flatShading: true, alphaTest: 0.5, side: THREE.DoubleSide })), key, { lit, ...flap });
-    mothKit = { geo, mat: make(0.6, 'moth'), flash: make(2.5, 'mothflash') };
+    mothKit = { geo, mat: make(0.3, 'moth'), flash: make(2.5, 'mothflash') };
     return mothKit;
   }
 
@@ -356,7 +356,7 @@ const Creatures = (() => {
     flock.push(s);
     const group = new THREE.Group(), body = new THREE.Mesh(K.geo, K.mat);
     group.name = 'moth';
-    body.scale.setScalar(1.35);
+    body.scale.setScalar(1.2);
     group.add(body);
     group.position.set(x, y, z);
     if (scene) scene.add(group);
@@ -389,7 +389,7 @@ const Creatures = (() => {
           const k = clamp(1 - s.dieT / MOTH.dieTime, 0, 1);
           body.rotation.y = yaw + s.dieT * 14;
           body.rotation.z = 1.2 * (1 - k);
-          body.scale.setScalar(Math.max(0.01, k) * 1.35);
+          body.scale.setScalar(Math.max(0.01, k) * 1.2);
         }
         return out;
       },
@@ -413,22 +413,22 @@ const Creatures = (() => {
         transformed.xz += normalize(position.xz + 1e-4) * sin(uTime * 2.2 + an * 3.0 + position.y * 2.0) * 0.09 * hem;
         transformed.y += sin(uTime * 3.0 + an * 5.0) * 0.05 * hem;`,
     };
-    const robeMat = patch(ps1(new THREE.MeshLambertMaterial({ map: robeTex, vertexColors: true, flatShading: true, side: THREE.DoubleSide, transparent: true })), 'warden', { lit: 0.35, ...ripple });
+    const robeMat = patch(ps1(new THREE.MeshLambertMaterial({ map: robeTex, vertexColors: true, flatShading: true, side: THREE.DoubleSide, transparent: true })), 'warden', { lit: 0.14, ...ripple });
     // robe (floats: the hem hangs 0.3 above the ground), hood and shoulders, all one mesh
     const robe = new THREE.CylinderGeometry(0.36, 1.15, 2.55, 11, 4, true).translate(0, 1.28 + 0.3, 0);
     const rp = robe.attributes.position, rr = rng(5);
     for (let i = 0; i < rp.count; i++) if (rp.getY(i) < 0.4) rp.setY(i, rp.getY(i) + (rr() - 0.5) * 0.3);
     const hood = new THREE.CylinderGeometry(0.02, 0.48, 1.1, 8, 2, true, 0.6, Math.PI * 2 - 1.2).translate(0, 0.55, 0);
     const parts = [
-      { geo: gnarl(robe, 0.06, 3), color: [1, 1, 1.05] },
-      { geo: gnarl(ball(0.5, 0.26, 0.4), 0.05, 4), m: M(0, 2.8, -0.02), color: [0.9, 0.9, 0.98] },
-      { geo: gnarl(hood, 0.04, 6), m: M(0, 2.76, -0.06, -0.22, 0, 0), color: [0.82, 0.82, 0.9] },
+      { geo: gnarl(robe, 0.06, 3), color: [0.72, 0.72, 0.78] },
+      { geo: gnarl(ball(0.5, 0.26, 0.4), 0.05, 4), m: M(0, 2.8, -0.02), color: [0.66, 0.66, 0.72] },
+      { geo: gnarl(hood, 0.04, 6), m: M(0, 2.76, -0.06, -0.22, 0, 0), color: [0.6, 0.6, 0.66] },
       { geo: ball(0.3, 0.36, 0.2), m: M(0, 3.12, -0.06), color: [0.02, 0.02, 0.03] },
     ];
     for (let i = 0; i < 12; i++) {
       const a = i * 0.52 + 0.2, len = 0.45 + rr() * 0.45, g = new THREE.PlaneGeometry(0.34, len, 1, 2).translate(0, -len / 2, 0), gp = g.attributes.position;
       for (let k = 0; k < gp.count; k++) if (gp.getY(k) < -len + 0.01) gp.setX(k, gp.getX(k) * 0.3);
-      parts.push({ geo: g, m: M(Math.sin(a) * 1.08, 0.5, Math.cos(a) * 1.08, -0.15, a, 0, 1, 'YXZ'), color: i % 2 ? [0.8, 0.8, 0.88] : [0.95, 0.95, 1.02] });
+      parts.push({ geo: g, m: M(Math.sin(a) * 1.08, 0.5, Math.cos(a) * 1.08, -0.15, a, 0, 1, 'YXZ'), color: i % 2 ? [0.58, 0.58, 0.64] : [0.7, 0.7, 0.76] });
     }
     const group = new THREE.Group();
     group.name = 'warden';
@@ -445,8 +445,8 @@ const Creatures = (() => {
       const pivot = new THREE.Group();
       pivot.position.set(0.42 * side, 2.72, 0);
       const g = merge([
-        { geo: gnarl(tube(0.12, 0.26, 1.15, 6), 0.04, 12 + side), color: [0.92, 0.92, 1] },
-        { geo: new THREE.PlaneGeometry(0.26, 0.5).translate(0, -1.35, 0), m: M(0, 0, 0.05), color: [0.8, 0.8, 0.88] },
+        { geo: gnarl(tube(0.12, 0.26, 1.15, 6), 0.04, 12 + side), color: [0.68, 0.68, 0.74] },
+        { geo: new THREE.PlaneGeometry(0.26, 0.5).translate(0, -1.35, 0), m: M(0, 0, 0.05), color: [0.6, 0.6, 0.66] },
       ]);
       pivot.add(new THREE.Mesh(g, robeMat));
       group.add(pivot);
@@ -577,9 +577,7 @@ const Creatures = (() => {
       head.rotation.y = Math.sin(t * 0.37) * 0.25 * (1 - roar);
       jaw.rotation.x = 0.05 + roar * 0.7;
       for (const L of legs) {
-        L.fu.rotation.x = lift * 1.05 - 0.05;
-        L.fl.rotation.x = 0;
-        L.fp.rotation.x = -lift * 0.0;
+        L.fu.rotation.x = lift * 1.05 - 0.05; // front legs stay straight; sitting tips them under the raised chest
         L.th.rotation.x = -lift * 1.35;
         L.sh.rotation.x = lift * 2.35;
         L.rp.rotation.x = -lift * 1.0;
@@ -617,7 +615,7 @@ const Creatures = (() => {
       for (let i = 0; i < 26; i++) { const X = (r() * 30) | 0, Y = (r() * 30) | 0; P('#4a3585', X, Y, 2 + ((r() * 2) | 0), 2); P('#9a7fe0', X, Y, 1, 1); }
       for (let i = 0; i < 60; i++) P(r() < 0.5 ? '#3a2a6a' : '#8466cc', (r() * 32) | 0, (r() * 32) | 0);
     });
-    const SK = [1.9, 1.25, 1.75], BELLY = [2.3, 1.9, 2.2], DARK = [0.5, 0.45, 0.7], EYE = [3, 1.8, 0.35];
+    const SK = [1.25, 0.82, 1.15], BELLY = [1.5, 1.25, 1.45], DARK = [0.5, 0.45, 0.7], EYE = [3, 1.8, 0.35];
     const parts = [
       { geo: gnarl(ball(1.05, 0.62, 0.95), 0.08, 1), m: M(0, 0.58, -0.1), color: SK },
       { geo: gnarl(ball(0.85, 0.44, 0.62), 0.05, 2), m: M(0, 0.78, 0.5), color: SK },
@@ -641,12 +639,12 @@ const Creatures = (() => {
       const a = wr() * Math.PI * 2, u = 0.3 + wr() * 0.6;
       parts.push({ geo: ball(0.07 + wr() * 0.05, 0.05, 0.07 + wr() * 0.05, 0), m: M(Math.sin(a) * u * 0.9, 0.58 + Math.sqrt(1 - u * u) * 0.58, Math.cos(a) * u * 0.85 - 0.15), color: [1.1, 0.95, 1.5] });
     }
-    const skinMat = patch(ps1(new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, flatShading: true })), 'toad', { lit: 0.28 });
+    const skinMat = patch(ps1(new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, flatShading: true })), 'toad', { lit: 0.2 });
     const group = new THREE.Group();
     group.name = 'toad';
     const body = new THREE.Mesh(merge(parts), skinMat);
     group.add(body);
-    const sacMat = patch(ps1(new THREE.MeshLambertMaterial({ color: 0xd9a8ff, flatShading: true, transparent: true, opacity: 0.9 })), 'toadsac', { lit: 0.45 });
+    const sacMat = patch(ps1(new THREE.MeshLambertMaterial({ color: 0xb58ae0, flatShading: true, transparent: true, opacity: 0.9 })), 'toadsac', { lit: 0.22 });
     const sac = new THREE.Mesh(gnarl(ball(0.36, 0.3, 0.3), 0.03, 7).translate(0, -0.22, 0.12), sacMat);
     sac.position.set(0, 0.62, 0.72);
     group.add(sac);

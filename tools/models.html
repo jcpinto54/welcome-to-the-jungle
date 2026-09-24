@@ -52,7 +52,7 @@ if (new URLSearchParams(location.search).has('world')) {
    (about 240 lines, integer nearest upscale, dithered 15-bit colour).
    URL: models.html?model=wizard&ui=0   Test hook: window.MV */
 const qs = new URLSearchParams(location.search);
-const canvas = document.getElementById('c');
+const canvas = document.getElementById('c'), info = document.getElementById('info'), ui = document.getElementById('ui');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
@@ -84,15 +84,18 @@ const postScene = new THREE.Scene();
 postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
 const postCam = new THREE.Camera();
 
-const FOG = 0x2b1b4d;
+const FOG = 0x2a1f44;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(FOG);
-scene.fog = new THREE.Fog(FOG, 14, 60);
+scene.fog = new THREE.Fog(FOG, 18, 100);
 const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, 200);
-// the game's lights: purple sky / swampy ground, a low pink sun from the north-west
-scene.add(new THREE.HemisphereLight(0x8a6ad8, 0x1a3a22, 1.25));
-const sun = new THREE.DirectionalLight(0xff9a7a, 1.1);
-sun.position.set(-0.55, 0.3, -0.83).multiplyScalar(50);
+// mirrors the game's lights (world.js): cool sky, a moon from the south-west, a pink sun rimming from the north-east
+scene.add(new THREE.HemisphereLight(0x9a94e8, 0x2a3a26, 2.5));
+const moon = new THREE.DirectionalLight(0xc4c8ff, 2.2);
+moon.position.set(-45, 70, 60);
+scene.add(moon);
+const sun = new THREE.DirectionalLight(0xff7aa8, 1.6);
+sun.position.set(0.64, 0.2, -0.74).normalize().multiplyScalar(100);
 scene.add(sun);
 
 // A patch of swamp floor with a few dark trunks behind, to judge contrast.
@@ -116,7 +119,7 @@ const props = new THREE.Group();
   const leaf = World.ps1(new THREE.MeshLambertMaterial({ map: TEX.leaves, color: 0x9fb0a0, flatShading: true }));
   const r = rng(11);
   for (let i = 0; i < 9; i++) {
-    const a = -2.2 + i * 0.55 + r() * 0.2, d = 11 + r() * 8;
+    const a = Math.PI - 1.4 + i * 0.35 + r() * 0.15, d = 11 + r() * 8; // a backdrop behind the models
     const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.8, 12, 6), bark);
     t.position.set(Math.sin(a) * d, 6, Math.cos(a) * d);
     props.add(t);
@@ -146,25 +149,23 @@ function build() {
   const W = Wizard.create();
   scene.add(W.group);
   M.wizard = { obj: W, group: W.group, focus: [0, 1.6, 0], tris: () => W.triangles };
-  if (typeof Creatures.moth === 'function') {
-    const moth = Creatures.moth(scene, 0, 2, 0);
-    M.moth = { obj: moth, group: moth.group, focus: [0, 2, 0], tris: () => Creatures.triangles(moth.group) };
-    const warden = Creatures.warden(scene, 0, 0, 0);
-    M.warden = { obj: warden, group: warden.group, focus: [0, 1.9, 0], tris: () => Creatures.triangles(warden.group) };
-    const panther = Creatures.panther(scene, 0, 1.8, 0);
-    M.panther = { obj: panther, group: panther.group, focus: [0, 2.8, 0], tris: () => Creatures.triangles(panther.group) };
-    const toad = Creatures.toad(scene, 0, 0.95, 0);
-    M.toad = { obj: toad, group: toad.group, focus: [0, 1.6, 0], tris: () => Creatures.triangles(toad.group) };
-  }
+  // the panther sits on an altar top (y 1.8) and the toad on a rock (y 0.95), as in the game
+  const moth = Creatures.moth(scene, 0, 2, 0);
+  M.moth = { obj: moth, group: moth.group, focus: [0, 2, 0], tris: () => Creatures.triangles(moth.group) };
+  const warden = Creatures.warden(scene, 0, 0, 0);
+  M.warden = { obj: warden, group: warden.group, focus: [0, 1.9, 0], tris: () => Creatures.triangles(warden.group) };
+  const panther = Creatures.panther(scene, 0, 1.8, 0);
+  M.panther = { obj: panther, group: panther.group, focus: [0, 2.8, 0], tris: () => Creatures.triangles(panther.group) };
+  const toad = Creatures.toad(scene, 0, 0.95, 0);
+  M.toad = { obj: toad, group: toad.group, focus: [0, 1.6, 0], tris: () => Creatures.triangles(toad.group) };
 }
 
 // Lineup positions (x) when showing everything at once.
-const LINEUP = { moth: -7, warden: -3.6, wizard: 0, panther: 4.2, toad: 8.4 };
+const LINEUP = { moth: -6.4, warden: -3.3, wizard: 0, panther: 3.8, toad: 7.4 };
 
 function place() {
   for (const [name, m] of Object.entries(M)) {
-    const on = showing === 'all' || showing === name || (showing === 'game' && name === 'wizard');
-    m.group.visible = on;
+    m.group.visible = showing === 'all' || showing === name;
     m.group.position.x = showing === 'all' ? LINEUP[name] : 0;
   }
   for (const c of props.children) {
@@ -214,7 +215,7 @@ function resize() {
 function render() {
   const size = resize();
   const m = M[showing] || M.wizard;
-  const f = cam.target || (showing === 'all' ? [0.7, 1.7, 0] : m.focus);
+  const f = cam.target || (showing === 'all' ? [0.5, 1.7, 0] : m.focus);
   camera.fov = cam.fov;
   camera.position.set(f[0] + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, f[1] + Math.sin(cam.pitch) * cam.dist, f[2] + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
   camera.lookAt(f[0], f[1], f[2]);
@@ -255,7 +256,7 @@ const MV = {
     return out;
   },
   // Deterministic pose: rebuild, then simulate at 60 fps.
-  // opts: { model, secs, walk, speed01, act, actAt, emerge, yaw, pitch, dist, target, fov, then(M) }
+  // opts: { model, secs, walk, speed01, act, actAt, actOn (model to act on), emerge, yaw, pitch, dist, target, fov }
   pose(opts = {}) {
     reset(opts.model || 'wizard');
     cam.auto = false;
@@ -284,13 +285,13 @@ window.MV = MV;
 
 /* ---------- interactive page ---------- */
 
-const info = document.getElementById('info');
-const ui = document.getElementById('ui');
 function button(label, fn) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; ui.appendChild(b); return b; }
+const DIST = { wizard: 6, moth: 3, warden: 9, panther: 7, toad: 6, all: 15 };
 build();
 showing = qs.get('model') || 'wizard';
+cam.dist = DIST[showing] || 6;
 place();
-for (const n of ['wizard', 'moth', 'warden', 'panther', 'toad', 'all']) button(n, () => { showing = n; place(); });
+for (const n of Object.keys(DIST)) button(n, () => { showing = n; cam.dist = DIST[n]; cam.target = null; place(); });
 button('walk', () => { walking = !walking; });
 for (const a of ['stomp', 'bolt', 'quake', 'dash', 'hurt', 'die', 'talk', 'emerge']) button(a, () => M.wizard.obj.act(a));
 button('orb', () => M.wizard.obj.setOrbColor([0xffb13b, 0xff4fd8, 0xa57bff][(Math.random() * 3) | 0]));

@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { openGame, shot } = require('./harness.cjs');
 
 const GALLERY = 'tools/ui.html';
-const STATES = ['hud', 'hud-start', 'hud-late', 'zone', 'dialogue', 'book', 'boot', 'intro', 'title', 'pause', 'end'];
+const STATES = ['hud', 'hud-start', 'hud-late', 'zone', 'dialogue', 'book', 'book-late', 'boot', 'intro', 'intro-2', 'title', 'pause', 'end'];
 
 // Switches the gallery to a state (the page rebuilds the UI on hashchange).
 async function visit(page, state, wait = 350) {

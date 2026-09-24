@@ -465,7 +465,7 @@ body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavi
 .jw-spell-dash { right: 0.5rem; bottom: 6.5rem; width: 3.5rem; height: 3.5rem; }
 .jw-spell-dash .jw-tb-name { display: none; }
 
-.jw-act { position: absolute; z-index: 6; right: calc(var(--sr) + 6.75rem); bottom: calc(var(--sb) + 10rem); min-width: 5.75rem; height: 3rem; padding: 0 1.125rem;
+.jw-act { position: absolute; z-index: 6; right: calc(var(--sr) + 6.75rem); bottom: calc(var(--sb) + 10.5rem); min-width: 5.75rem; height: 3rem; padding: 0 1.125rem;
   display: flex; align-items: center; justify-content: center; border-radius: 1.5rem; font: 1rem/1 var(--f-px); letter-spacing: 0.04em; color: #1a1030;
   background: linear-gradient(180deg, #fff6c4, var(--gold)); box-shadow: 0 0 0 0.125rem var(--edge), 0 0.25rem 0 rgba(0, 0, 0, 0.45), 0 0 1.25rem rgba(255, 209, 102, 0.55);
   animation: jw-bob 0.7s steps(2) infinite; }
@@ -484,12 +484,12 @@ body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavi
 #ui.jw-touch-on .jw-cross, #ui.jw-touch-on .jw-abil, #ui.jw-touch-on .jw-hint,
 #ui.jw-touch-on .jw-dlg-hint .jw-key, #ui.jw-touch-on .jw-pause-keys, #ui.jw-touch-on .jw-legend-tip, #ui.jw-touch-on .jw-close .jw-key { display: none; }
 #ui.jw-touch-on .jw-quest { right: auto; left: 50%; transform: translateX(-50%); width: auto; max-width: calc(100% - 26rem); }
-#ui.jw-touch-on .jw-toasts { top: calc(var(--st) + 4.25rem); max-width: min(19rem, calc(100% - 26rem)); }
+#ui.jw-touch-on .jw-toasts { top: calc(var(--st) + 4.5rem); left: var(--sl); transform: none; align-items: flex-start; max-width: min(19rem, 42%); }
 #ui.jw-touch-on .jw-toast { font: 1.25rem/1 var(--f-vt); letter-spacing: 0.03em; padding: 0.3125rem 0.75rem 0.375rem; text-wrap: balance; }
 #ui.jw-touch-on .jw-toast:nth-last-child(n+3) { display: none; }
-#ui.jw-touch-on .jw-pockets { top: 50%; }
+#ui.jw-touch-on .jw-pockets { top: 58%; }
 #ui.jw-touch-on .jw-pocket { --x: -5.5rem; --y: 0rem; }
-#ui.jw-touch-on .jw-pocket[data-l="snare"] { --x: 0rem; --y: 2.5rem; }
+#ui.jw-touch-on .jw-pocket[data-l="snare"] { --x: 0rem; --y: -2.25rem; }
 #ui.jw-touch-on .jw-pocket[data-l="bass"] { --x: 5.5rem; }
 #ui.jw-touch-on .jw-deck { left: calc(50% - 1rem); }
 #ui.jw-touch-on .jw-prompt { display: none; } /* the action button says it */
@@ -558,6 +558,17 @@ body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavi
   .jw-boot-keys { gap: 0.3125rem 0.5rem; margin-top: 0.25rem; font-size: 1.125rem; }
   .jw-boot-keys .jw-key { height: 1.125rem; font-size: 1.125rem; }
   .jw-rotate-phone .jw-px { --px: 0.25rem; }
+}
+/* the smallest phones (568x320): a tighter cluster so the strip and the buttons never meet */
+@media (max-width: 640px) {
+  .jw-spells { transform: scale(0.82); transform-origin: 100% 100%; }
+  .jw-act { right: calc(var(--sr) + 5.5rem); bottom: calc(var(--sb) + 8.75rem); }
+  .jw-strip { --cw: 0.375rem; --gg: 0.125rem; --bgap: 0.3125rem; }
+  #ui.jw-touch-on .jw-deck { left: calc(50% - 2.25rem); }
+  #ui.jw-touch-on .jw-quest { left: calc(var(--sl) + 11.75rem); right: calc(var(--sr) + 9.75rem); transform: none; max-width: none; }
+  #ui.jw-touch-on .jw-toast:nth-last-child(n+2) { display: none; }
+  #ui.jw-touch-on .jw-pockets { top: 62%; }
+  .jw-stick:not(.is-live) { transform: scale(0.75); transform-origin: 0 100%; }
 }
 @media (max-height: 400px) {
   .jw-boot-keys { display: none; }

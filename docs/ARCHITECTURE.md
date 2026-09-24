@@ -206,3 +206,12 @@ JW.seq, JW.quest, JW.world, JW.L (landmarks)
 - `npm test` runs `node --test "tests/*.test.js"` (unit tests of the pure modules, no dependencies).
 - `npm run test:e2e` runs the Playwright smoke tests in `tests/e2e/`. They load `index.html`, block the CDN and serve `vendor/three.min.js`, fail on any console error, and write screenshots to `tests/e2e/shots/` (gitignored).
 - Write the test first, watch it fail, then implement.
+
+## Additions made during implementation
+
+- **Sound:** `Sound.latencyMs` (default 0) is subtracted in `posAt()` only, so `JW.cast(name, true)` must add it back when it fakes an on-beat press. `sfx.emerge()` returns 1.9, the seconds until the tree cracks. `sfx.talk(voice?)`. `Sound.mixReport()` is dev-only. `unlock()` and `scream()` must be called synchronously inside the tap or click handler (iOS).
+- **Creatures:** `moth.update()` returns `{bite}`. `warden.update()` returns `{rings, spawned, hit}`. `env.songPos` is optional. Creatures have `gone` and `state`, and `Creatures.clear()` resets them on restart. The panther stands at `World.altarTop` and the toad on top of the world's rock (neither model includes its altar or rock).
+- **Wizard:** `reset()`, `dead`, `acting`.
+- **Quest:** `q.log()`. `pyramidReady` also accepts a per-lane function or counts, and returns `lanes`, `stones` and `text`. Dialogue lives in `Quest.LINES.{tree, panther, toad, pyramid}` and names in `Quest.SPEAKERS`.
+- **Input:** `lock()`, `unlock()`, `locked`, `setSettings()`, `RAD_PER_PX` (0.0024). It emits `pause` on Esc, P or a real pointer-lock loss. In `menu` mode a click or tap emits `advance`, which resumes from pause.
+- **UI:** `toast(text, 'zone')` shows a zone banner. `prompt('[E] ...')` draws a keycap. `objective.angle` is in radians, positive means to the right. `openBook` reads `handlers.quest` (falling back to `JW.quest`). Snare and bass cells ignore clicks while those spells are locked.
